@@ -42,6 +42,15 @@ const ConfigSchema = z.object({
   TURN_PUBLIC_URLS: z.string().default(''),
   /** TTL ephemeral creds в секундах. Дефолт 1 час. */
   TURN_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
+
+  /**
+   * LiveKit для group-voice (фаза 5+). Совпадает с `infra/livekit/livekit.yaml::keys`.
+   * Пустые значения → токены не выпускаются, групповой voice выключен.
+   */
+  LIVEKIT_API_KEY: z.string().default(''),
+  LIVEKIT_API_SECRET: z.string().default(''),
+  /** Что видит клиент: `ws://localhost:7880` в dev, `wss://lk.example.com` в prod. */
+  LIVEKIT_WS_URL: z.string().default(''),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

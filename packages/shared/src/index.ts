@@ -7,6 +7,7 @@ export * from './domain/message.js';
 export * from './api/auth.js';
 export * from './api/calls.js';
 export * from './api/guilds.js';
+export * from './api/livekit.js';
 export * from './api/messages.js';
 export * from './api/reactions.js';
 export * from './ws/events.js';

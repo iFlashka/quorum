@@ -48,6 +48,9 @@ export async function setupRig(): Promise<TestRig> {
     JWT_ACCESS_TTL: '15m',
     JWT_REFRESH_TTL: '30d',
     UPLOADS_DIR: './test-uploads-dir',
+    LIVEKIT_API_KEY: 'test-lk-key',
+    LIVEKIT_API_SECRET: 'test-lk-secret-must-be-32-chars-or-more',
+    LIVEKIT_WS_URL: 'ws://localhost:7880',
   });
   const app = await buildApp({ config, db: testDb.db, redis: testRedis.clients });
   await app.ready();

@@ -32,6 +32,8 @@ import { PresenceService } from './modules/presence/service.js';
 import { CallsService } from './modules/calls/service.js';
 import { TurnService } from './modules/turn/service.js';
 import { turnRoutes } from './modules/turn/routes.js';
+import { LivekitService } from './modules/livekit/service.js';
+import { livekitRoutes } from './modules/livekit/routes.js';
 import { randomUUID } from 'node:crypto';
 
 export interface BuildAppOptions {
@@ -88,6 +90,11 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
     urls: config.TURN_PUBLIC_URLS.split(',').map((u) => u.trim()).filter(Boolean),
     ttlSeconds: config.TURN_TTL_SECONDS,
   });
+  const livekitService = new LivekitService({
+    apiKey: config.LIVEKIT_API_KEY,
+    apiSecret: config.LIVEKIT_API_SECRET,
+    wsUrl: config.LIVEKIT_WS_URL,
+  });
 
   // ---- Плагины ----
   await app.register(sensible);
@@ -122,6 +129,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   await app.register(readStateRoutes({ service: readStatesService }));
   await app.register(attachmentRoutes({ service: attachmentsService }));
   await app.register(turnRoutes({ service: turnService }));
+  await app.register(livekitRoutes({ service: livekitService, messages: messagesService, db }));
 
   // ---- WebSocket ----
   await app.register(wsPlugin, {
@@ -139,6 +147,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   app.decorate('presenceService', presenceService);
   app.decorate('callsService', callsService);
   app.decorate('turnService', turnService);
+  app.decorate('livekitService', livekitService);
 
   app.addHook('onClose', async () => {
     callsService.shutdown();
@@ -157,5 +166,6 @@ declare module 'fastify' {
     presenceService: PresenceService;
     callsService: CallsService;
     turnService: TurnService;
+    livekitService: LivekitService;
   }
 }
