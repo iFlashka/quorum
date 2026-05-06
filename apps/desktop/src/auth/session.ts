@@ -32,6 +32,11 @@ export function createSession(api: ApiClient): Session {
   ): Promise<void> => {
     await keychain.set(KEYCHAIN_REFRESH_TOKEN, refreshToken);
     const expiresAtMs = Date.parse(accessTokenExpiresAt);
+
+    // Сначала кладём access в store — иначе следующий вызов auth.me() пойдёт
+    // через ApiClient.getAccessToken() и увидит null.
+    useAuth.getState().setAccessToken(accessToken, expiresAtMs);
+
     const me = await auth.me().catch(() => null);
     if (me) {
       useAuth.getState().setAuthenticated({
@@ -40,9 +45,6 @@ export function createSession(api: ApiClient): Session {
         accessExpiresAt: expiresAtMs,
         guilds: me.guilds,
       });
-    } else {
-      // Если /me упал — не теряем токены, но и не считаем юзера загруженным.
-      useAuth.getState().setAccessToken(accessToken, expiresAtMs);
     }
   };
 

@@ -1,31 +1,47 @@
-import { MOCK_MEMBERS, type MockMember } from '@/mock/fixtures';
+import type { PublicMember, UserStatus } from '@quorum/shared';
+import { useGuildMembers } from '@/hooks/use-guild-data';
+import { useRealtime } from '@/realtime/store';
+import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
 
-const STATUS_COLOR: Record<MockMember['status'], string> = {
+const STATUS_COLOR: Record<UserStatus, string> = {
   online: 'bg-accent-success',
   idle: 'bg-accent-warning',
   dnd: 'bg-accent-danger',
   offline: 'bg-text-muted',
 };
 
-const ROLE_LABEL: Record<NonNullable<MockMember['role']>, string> = {
+const ROLE_LABEL = {
   owner: 'OWNER',
   admin: 'ADMINS',
   member: 'MEMBERS',
-};
+} as const;
+
+const ROLE_ORDER = ['owner', 'admin', 'member'] as const;
 
 export function MemberList(): JSX.Element {
-  const grouped = MOCK_MEMBERS.reduce<Record<string, MockMember[]>>((acc, m) => {
-    const key = m.role ?? 'member';
-    (acc[key] ??= []).push(m);
+  const guildId = useSelection((s) => s.guildId);
+  const { data, isLoading } = useGuildMembers(guildId);
+  const presence = useRealtime((s) => s.presence);
+  const members = data?.members ?? [];
+
+  // Применяем live-presence поверх БД-status (если WS прислал свежее значение).
+  const overlaid = members.map((m) => ({
+    ...m,
+    status: presence.get(m.userId) ?? m.status,
+  }));
+
+  const grouped = overlaid.reduce<Record<string, typeof overlaid>>((acc, m) => {
+    (acc[m.role] ??= []).push(m);
     return acc;
   }, {});
 
-  const order: NonNullable<MockMember['role']>[] = ['owner', 'admin', 'member'];
-
   return (
     <aside className="flex w-[240px] shrink-0 flex-col overflow-y-auto bg-bg-darker pt-4 pr-2 pl-2">
-      {order.map((role) => {
+      {isLoading && members.length === 0 && (
+        <div className="px-2 text-[13px] text-text-muted">Загрузка участников…</div>
+      )}
+      {ROLE_ORDER.map((role) => {
         const list = grouped[role];
         if (!list || list.length === 0) return null;
         return (
@@ -47,7 +63,7 @@ export function MemberList(): JSX.Element {
   );
 }
 
-function MemberRow({ member }: { member: MockMember }): JSX.Element {
+function MemberRow({ member }: { member: PublicMember }): JSX.Element {
   const muted = member.status === 'offline';
   return (
     <button
@@ -59,7 +75,7 @@ function MemberRow({ member }: { member: MockMember }): JSX.Element {
     >
       <div className="relative shrink-0">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-[13px] font-semibold text-white">
-          {member.initials}
+          {avatarInitials(member.displayName || member.username)}
         </div>
         <span
           className={cn(
@@ -68,7 +84,17 @@ function MemberRow({ member }: { member: MockMember }): JSX.Element {
           )}
         />
       </div>
-      <span className="truncate text-[15px] font-medium text-text-secondary">{member.name}</span>
+      <span className="truncate text-[15px] font-medium text-text-secondary">
+        {member.nickname ?? member.displayName ?? member.username}
+      </span>
     </button>
   );
+}
+
+function avatarInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '?';
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
 }

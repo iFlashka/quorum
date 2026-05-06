@@ -1,24 +1,51 @@
 import { ChevronDown, Hash, Headphones, Mic, Plus, Volume2 } from 'lucide-react';
-import { useState } from 'react';
-import { MOCK_CATEGORIES, type MockChannel } from '@/mock/fixtures';
+import { useEffect, useMemo, useState } from 'react';
+import type { PublicChannel } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
+import { useGuilds, useGuildChannels } from '@/hooks/use-guild-data';
+import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
 import { UserCardMenu } from './UserCardMenu';
 
 export function ChannelSidebar(): JSX.Element {
+  const guildId = useSelection((s) => s.guildId);
+  const channelId = useSelection((s) => s.channelId);
+  const setChannel = useSelection((s) => s.setChannel);
+  const { data: guildsData } = useGuilds();
+  const { data: channelsData, isLoading } = useGuildChannels(guildId);
+  const channels = useMemo(() => channelsData?.channels ?? [], [channelsData]);
+
+  const activeGuild = guildsData?.guilds.find((g) => g.id === guildId);
+
+  // Авто-выбор первого text-канала при смене гилды.
+  useEffect(() => {
+    if (!channelId && channels.length > 0) {
+      const firstText = channels.find((c) => c.kind === 'text') ?? channels[0]!;
+      setChannel(firstText.id);
+    }
+  }, [channelId, channels, setChannel]);
+
+  const grouped = useMemo(() => groupByKind(channels), [channels]);
+
   return (
     <aside className="flex w-[240px] shrink-0 flex-col bg-bg-darker">
       <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center justify-between px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
         <span className="truncate text-[15px] font-semibold tracking-tight text-text-primary">
-          Quorum
+          {activeGuild?.name ?? 'Quorum'}
         </span>
         <ChevronDown size={18} className="titlebar-no-drag text-text-secondary" />
       </header>
 
       <nav className="flex-1 overflow-y-auto pt-2 pr-2 pl-2">
-        {MOCK_CATEGORIES.map((cat) => (
-          <CategorySection key={cat.id} name={cat.name} channels={cat.channels} />
-        ))}
+        {isLoading && channels.length === 0 && (
+          <div className="px-2 py-2 text-[13px] text-text-muted">Загрузка каналов…</div>
+        )}
+        {grouped.text.length > 0 && (
+          <CategorySection name="Текстовые каналы" channels={grouped.text} activeId={channelId} onSelect={setChannel} />
+        )}
+        {grouped.voice.length > 0 && (
+          <CategorySection name="Голосовые каналы" channels={grouped.voice} activeId={channelId} onSelect={setChannel} />
+        )}
       </nav>
 
       <UserCard />
@@ -26,13 +53,24 @@ export function ChannelSidebar(): JSX.Element {
   );
 }
 
-function CategorySection({
-  name,
-  channels,
-}: {
+function groupByKind(channels: PublicChannel[]): { text: PublicChannel[]; voice: PublicChannel[] } {
+  const text: PublicChannel[] = [];
+  const voice: PublicChannel[] = [];
+  for (const c of channels) {
+    if (c.kind === 'voice') voice.push(c);
+    else text.push(c);
+  }
+  return { text, voice };
+}
+
+interface CategoryProps {
   name: string;
-  channels: MockChannel[];
-}): JSX.Element {
+  channels: PublicChannel[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+}
+
+function CategorySection({ name, channels, activeId, onSelect }: CategoryProps): JSX.Element {
   const [open, setOpen] = useState(true);
   return (
     <div className="mt-4 first:mt-1">
@@ -61,7 +99,11 @@ function CategorySection({
         <ul className="mt-0.5 space-y-0.5">
           {channels.map((ch) => (
             <li key={ch.id}>
-              <ChannelButton channel={ch} />
+              <ChannelButton
+                channel={ch}
+                active={ch.id === activeId}
+                onClick={() => onSelect(ch.id)}
+              />
             </li>
           ))}
         </ul>
@@ -70,24 +112,27 @@ function CategorySection({
   );
 }
 
-function ChannelButton({ channel }: { channel: MockChannel }): JSX.Element {
+interface ChannelButtonProps {
+  channel: PublicChannel;
+  active: boolean;
+  onClick: () => void;
+}
+
+function ChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.Element {
   const Icon = channel.kind === 'text' ? Hash : Volume2;
   return (
     <button
       type="button"
+      onClick={onClick}
       className={cn(
         'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[15px] transition-colors',
-        channel.active
+        active
           ? 'bg-bg-active text-text-primary'
-          : channel.unread
-            ? 'text-text-primary hover:bg-bg-hover'
-            : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
+          : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
       )}
     >
       <Icon size={20} strokeWidth={1.75} className="shrink-0 text-text-muted" />
-      <span className={cn('truncate', channel.unread && !channel.active && 'font-semibold')}>
-        {channel.name}
-      </span>
+      <span className="truncate">{channel.name}</span>
     </button>
   );
 }

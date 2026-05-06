@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { CustomTitlebar } from '@/components/titlebar/CustomTitlebar';
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
@@ -8,10 +9,33 @@ import { loadServerConfig } from '@/lib/server-config';
 import { createAppRuntime } from '@/auth/runtime';
 import { useRuntime } from '@/auth/runtime-store';
 import { useAuth } from '@/auth/store';
+import { attachRealtimeBridge } from '@/realtime/realtime-bridge';
 
 type Stage = 'bootstrapping' | 'onboarding' | 'login' | 'register' | 'authed';
 
 export function App(): JSX.Element {
+  const queryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+    [],
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppInner />
+    </QueryClientProvider>
+  );
+}
+
+function AppInner(): JSX.Element {
   const [stage, setStage] = useState<Stage>('bootstrapping');
   const runtime = useRuntime((s) => s.runtime);
   const setRuntime = useRuntime((s) => s.setRuntime);
@@ -37,7 +61,6 @@ export function App(): JSX.Element {
   // Перевод стадии вслед за auth-статусом и наличием runtime.
   useEffect(() => {
     if (!runtime) {
-      // runtime сбросили → возврат к онбордингу.
       if (stage !== 'bootstrapping' && stage !== 'onboarding') {
         setStage('onboarding');
       }
@@ -49,6 +72,16 @@ export function App(): JSX.Element {
       setStage((s) => (s === 'register' ? 'register' : 'login'));
     }
   }, [runtime, status, stage]);
+
+  // Поднимаем WS когда auth получен; роняем при logout.
+  useEffect(() => {
+    if (!runtime) return;
+    if (status === 'authenticated') {
+      runtime.ws.connect();
+    } else {
+      runtime.ws.disconnect();
+    }
+  }, [runtime, status]);
 
   if (stage === 'bootstrapping') {
     return (
@@ -104,5 +137,19 @@ export function App(): JSX.Element {
     );
   }
 
+  return <AppScreenWithBridge />;
+}
+
+/**
+ * Привязывает realtime-bridge к QueryClient — `useQueryClient` доступен только
+ * внутри `QueryClientProvider`, поэтому отдельный компонент.
+ */
+function AppScreenWithBridge(): JSX.Element {
+  const runtime = useRuntime((s) => s.runtime);
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!runtime) return;
+    return attachRealtimeBridge(runtime.ws, queryClient);
+  }, [runtime, queryClient]);
   return <AppScreen />;
 }

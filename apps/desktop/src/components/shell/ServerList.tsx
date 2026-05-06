@@ -1,26 +1,34 @@
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { PublicGuild } from '@quorum/shared';
-import { useAuth } from '@/auth/store';
+import { useGuilds } from '@/hooks/use-guild-data';
+import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
 
 export function ServerList(): JSX.Element {
-  const guilds = useAuth((s) => s.guilds);
-  const [activeId, setActiveId] = useState<string>(guilds[0]?.id ?? '');
+  const { data, isLoading } = useGuilds();
+  const guilds = useMemo(() => data?.guilds ?? [], [data]);
+  const activeGuildId = useSelection((s) => s.guildId);
+  const setGuild = useSelection((s) => s.setGuild);
 
-  // Если активный из стейта пропал (например после выхода из гилды) — переключаемся на первый.
-  if (activeId && !guilds.some((g) => g.id === activeId) && guilds.length > 0) {
-    setActiveId(guilds[0]!.id);
-  }
+  // Авто-выбор первой гилды как только данные приехали.
+  useEffect(() => {
+    if (!activeGuildId && guilds.length > 0) {
+      setGuild(guilds[0]!.id);
+    }
+  }, [activeGuildId, guilds, setGuild]);
 
   return (
     <nav className="flex w-[72px] shrink-0 flex-col items-center gap-2 bg-bg-deepest pt-3 pb-3">
+      {isLoading && guilds.length === 0 && (
+        <div className="h-12 w-12 animate-pulse rounded-3xl bg-bg-default" />
+      )}
       {guilds.map((g) => (
         <ServerIcon
           key={g.id}
           guild={g}
-          active={g.id === activeId}
-          onClick={() => setActiveId(g.id)}
+          active={g.id === activeGuildId}
+          onClick={() => setGuild(g.id)}
         />
       ))}
       {guilds.length > 0 && <div className="my-1 h-0.5 w-8 rounded-full bg-border-subtle" />}
@@ -67,7 +75,10 @@ function ServerIcon({ guild, active, onClick }: ServerIconProps): JSX.Element {
           <img
             src={guild.iconUrl}
             alt={guild.name}
-            className={cn('h-full w-full object-cover', active ? 'rounded-2xl' : 'rounded-3xl group-hover:rounded-2xl')}
+            className={cn(
+              'h-full w-full object-cover',
+              active ? 'rounded-2xl' : 'rounded-3xl group-hover:rounded-2xl',
+            )}
           />
         ) : (
           initials

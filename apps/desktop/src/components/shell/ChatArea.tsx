@@ -1,16 +1,47 @@
-import { Bell, Hash, Inbox, Pin, Plus, Search, Smile, Users } from 'lucide-react';
-import { MOCK_MESSAGES, type MockMessage } from '@/mock/fixtures';
+import { Bell, Hash, Inbox, Pin, Search, Users, Volume2 } from 'lucide-react';
+import { useMemo } from 'react';
+import { useGuildChannels, useGuildMembers } from '@/hooks/use-guild-data';
+import { useTypersByChannel } from '@/realtime/store';
+import { useSelection } from '@/state/selection';
+import { MessageList } from '@/components/messages/MessageList';
+import { MessageInput } from '@/components/messages/MessageInput';
 
 export function ChatArea(): JSX.Element {
+  const guildId = useSelection((s) => s.guildId);
+  const channelId = useSelection((s) => s.channelId);
+  const { data: channelsData } = useGuildChannels(guildId);
+  const { data: membersData } = useGuildMembers(guildId);
+  const channel = channelsData?.channels.find((c) => c.id === channelId);
+  const members = useMemo(() => membersData?.members ?? [], [membersData]);
+
+  const typers = useTypersByChannel(channelId ?? '');
+  const typingNames = useMemo(() => {
+    if (typers.length === 0) return [];
+    return typers
+      .map((id) => members.find((m) => m.userId === id))
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map((m) => m.displayName || m.username);
+  }, [typers, members]);
+
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-bg-default">
       <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center gap-2 px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
-        <Hash size={24} strokeWidth={1.75} className="text-text-muted" />
-        <span className="text-[16px] font-semibold tracking-tight text-text-primary">general</span>
-        <span className="mx-2 hidden h-6 w-[2px] rounded-sm bg-bg-active md:block" />
-        <span className="hidden truncate text-[14px] text-text-secondary md:block">
-          Канал по умолчанию для всех разговоров
+        {channel?.kind === 'voice' ? (
+          <Volume2 size={24} strokeWidth={1.75} className="text-text-muted" />
+        ) : (
+          <Hash size={24} strokeWidth={1.75} className="text-text-muted" />
+        )}
+        <span className="text-[16px] font-semibold tracking-tight text-text-primary">
+          {channel?.name ?? '—'}
         </span>
+        {channel?.topic && (
+          <>
+            <span className="mx-2 hidden h-6 w-[2px] rounded-sm bg-bg-active md:block" />
+            <span className="hidden truncate text-[14px] text-text-secondary md:block">
+              {channel.topic}
+            </span>
+          </>
+        )}
         <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 text-text-secondary">
           <HeaderIcon title="Уведомления">
             <Bell size={20} strokeWidth={1.75} />
@@ -31,31 +62,30 @@ export function ChatArea(): JSX.Element {
         </div>
       </header>
 
-      <section className="flex-1 overflow-y-auto px-2 py-4">
-        <div>
-          {MOCK_MESSAGES.map((m, i) => {
-            const prev = MOCK_MESSAGES[i - 1];
-            const grouped = prev?.authorId === m.authorId;
-            return <MessageRow key={m.id} message={m} grouped={grouped} />;
-          })}
+      {channel?.kind === 'voice' ? (
+        <div className="flex flex-1 items-center justify-center text-text-muted">
+          Голосовые каналы появятся в фазе 5
         </div>
-      </section>
-
-      <footer className="px-4 pt-2 pb-6">
-        <div className="flex items-center gap-3 rounded-lg bg-bg-elevated px-4 py-[11px]">
-          <button
-            type="button"
-            aria-label="attach"
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-text-muted text-bg-elevated hover:bg-text-secondary"
-          >
-            <Plus size={18} strokeWidth={2.5} />
-          </button>
-          <span className="flex-1 text-[15px] text-text-muted">Сообщение в #general</span>
-          <Smile size={20} strokeWidth={1.75} className="text-text-muted hover:text-text-secondary" />
-        </div>
-      </footer>
+      ) : (
+        <>
+          <MessageList />
+          {typingNames.length > 0 && (
+            <div className="px-6 pb-1 text-[13px] text-text-muted">
+              {formatTyping(typingNames)}
+            </div>
+          )}
+          <MessageInput channelName={channel?.name} />
+        </>
+      )}
     </main>
   );
+}
+
+function formatTyping(names: string[]): string {
+  if (names.length === 1) return `${names[0]} печатает…`;
+  if (names.length === 2) return `${names[0]} и ${names[1]} печатают…`;
+  if (names.length === 3) return `${names[0]}, ${names[1]} и ${names[2]} печатают…`;
+  return 'Несколько участников печатают…';
 }
 
 interface HeaderIconProps {
@@ -72,42 +102,5 @@ function HeaderIcon({ children, title }: HeaderIconProps): JSX.Element {
     >
       {children}
     </button>
-  );
-}
-
-interface MessageRowProps {
-  message: MockMessage;
-  grouped: boolean;
-}
-
-function MessageRow({ message, grouped }: MessageRowProps): JSX.Element {
-  return (
-    <div
-      className={
-        'group relative flex gap-4 px-4 hover:bg-bg-elevated ' +
-        (grouped ? 'mt-0 py-[2px]' : 'mt-[17px] pt-[2px] pb-[2px]')
-      }
-    >
-      {grouped ? (
-        <div className="num-tabular flex w-10 shrink-0 justify-end pr-0.5 text-[10px] leading-[22px] text-text-muted opacity-0 group-hover:opacity-100">
-          {message.timestamp}
-        </div>
-      ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[15px] font-semibold text-white">
-          {message.authorInitials}
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        {!grouped && (
-          <div className="flex items-baseline gap-2">
-            <span className="text-[15px] font-medium text-text-primary">{message.authorName}</span>
-            <span className="num-tabular text-[12px] text-text-muted">Сегодня в {message.timestamp}</span>
-          </div>
-        )}
-        <p className="text-[15px] leading-[1.375] whitespace-pre-wrap text-text-primary">
-          {message.body}
-        </p>
-      </div>
-    </div>
   );
 }

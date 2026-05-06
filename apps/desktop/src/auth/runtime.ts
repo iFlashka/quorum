@@ -5,14 +5,21 @@
  */
 
 import { ApiClient } from '@/api/client';
+import { makeGuildsApi, type GuildsApi } from '@/api/guilds';
+import { makeMessagesApi, type MessagesApi } from '@/api/messages';
 import { keychain, KEYCHAIN_REFRESH_TOKEN } from '@/lib/keychain';
+import { WebSocketManager } from '@/realtime/WebSocketManager';
 import { createSession, type Session } from './session';
 import { getCurrentAccessToken, useAuth } from './store';
 import type { RefreshResponse } from '@quorum/shared';
 
 export interface AppRuntime {
   serverUrl: string;
+  api: ApiClient;
   session: Session;
+  guildsApi: GuildsApi;
+  messagesApi: MessagesApi;
+  ws: WebSocketManager;
 }
 
 export function createAppRuntime(serverUrl: string): AppRuntime {
@@ -49,8 +56,21 @@ export function createAppRuntime(serverUrl: string): AppRuntime {
     },
   });
 
+  const ws = new WebSocketManager({
+    baseUrl: serverUrl,
+    getAccessToken: getCurrentAccessToken,
+    refreshAccess: async () => refreshTokens(),
+    onAuthLost: () => {
+      useAuth.getState().setUnauthenticated();
+    },
+  });
+
   return {
     serverUrl,
+    api,
     session: createSession(api),
+    guildsApi: makeGuildsApi(api),
+    messagesApi: makeMessagesApi(api),
+    ws,
   };
 }
