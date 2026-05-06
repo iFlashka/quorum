@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useVoice, type CallPhase } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
+import { registerOutputAudio } from '@/voice/audio-output';
 import { VideoTile } from './VideoTile';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +60,14 @@ export function CallOverlay(): JSX.Element | null {
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = deafened;
   }, [deafened]);
+
+  // Регистрируем audio element для применения outputDeviceId/Volume из prefs.
+  // Effect срабатывает после mount; phase=idle → audioRef.current === null.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    return registerOutputAudio(el);
+  }, [phase]);
 
   const peerName = peer?.displayName ?? peer?.username ?? '...';
   const initials = useMemoInitials(peerName);

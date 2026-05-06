@@ -23,6 +23,7 @@ import {
 import type { ScreenQualitySettings } from '@quorum/shared';
 import { useChannelVoice, type ChannelParticipant } from './channel-store';
 import { useVoicePrefs } from './prefs';
+import { registerOutputAudio } from './audio-output';
 
 export interface JoinOptions {
   token: string;
@@ -38,6 +39,8 @@ export class LivekitRoom {
   private localAudioTrack: LocalAudioTrack | null = null;
   /** Audio-элементы для каждого remote-audio-track. */
   private readonly attachedAudio = new Map<string, HTMLAudioElement>();
+  /** Unregister-функции для applied output-prefs (sink + volume). */
+  private readonly outputUnregister = new Map<string, () => void>();
 
   async join(opts: JoinOptions): Promise<void> {
     const prefs = useVoicePrefs.getState();
@@ -163,6 +166,8 @@ export class LivekitRoom {
       audio.srcObject = null;
       audio.remove();
     }
+    for (const off of this.outputUnregister.values()) off();
+    this.outputUnregister.clear();
     this.attachedAudio.clear();
     this.localAudioTrack = null;
     if (this.room) {
@@ -255,7 +260,9 @@ export class LivekitRoom {
       const audio = track.attach();
       audio.autoplay = true;
       document.body.appendChild(audio);
-      this.attachedAudio.set(track.sid ?? `${Math.random()}`, audio);
+      const key = track.sid ?? `${Math.random()}`;
+      this.attachedAudio.set(key, audio);
+      this.outputUnregister.set(key, registerOutputAudio(audio));
       return;
     }
     if (track.kind === Track.Kind.Video) {
@@ -292,6 +299,8 @@ export class LivekitRoom {
     audio.srcObject = null;
     audio.remove();
     this.attachedAudio.delete(trackSid);
+    this.outputUnregister.get(trackSid)?.();
+    this.outputUnregister.delete(trackSid);
   }
 
   private detachRemoteTracks(p: RemoteParticipant | Participant): void {

@@ -26,6 +26,7 @@ import { ChannelVoiceContext } from '@/voice/channel-context';
 import { useVoicePrefs } from '@/voice/prefs';
 import { useSoundPrefs } from '@/state/sound-prefs';
 import { soundManager } from '@/audio/sounds';
+import { startOutputAudioSync } from '@/voice/audio-output';
 import {
   maybePlayMentionSound,
   maybePlayMessageSound,
@@ -95,6 +96,7 @@ function AppInner(): JSX.Element {
       void useVoicePrefs.getState().hydrate();
       void useSoundPrefs.getState().hydrate();
       soundManager.preload();
+      startOutputAudioSync();
       void runUpdateCheck();
 
       const cfg = await loadServerConfig().catch(() => null);
