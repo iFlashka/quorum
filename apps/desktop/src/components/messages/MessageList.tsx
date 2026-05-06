@@ -5,6 +5,7 @@ import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useMarkRead } from '@/hooks/use-mark-read';
 import { useSelection } from '@/state/selection';
 import { Message } from './Message';
+import { DateDivider, sameDay } from './DateDivider';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -85,11 +86,20 @@ export function MessageList(): JSX.Element {
       <div>
         {flat.map((m, i) => {
           const prev = flat[i - 1];
+          const prevDate = prev ? new Date(prev.createdAt) : null;
+          const curDate = new Date(m.createdAt);
+          const dayChanged = !prevDate || !sameDay(prevDate, curDate);
           const grouped =
             !!prev &&
+            !dayChanged &&
             prev.author.id === m.author.id &&
-            new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < FIVE_MINUTES;
-          return <Message key={m.id} message={m} grouped={grouped} userById={userById} />;
+            curDate.getTime() - new Date(prev.createdAt).getTime() < FIVE_MINUTES;
+          return (
+            <div key={m.id}>
+              {dayChanged && <DateDivider iso={m.createdAt} />}
+              <Message message={m} grouped={grouped} userById={userById} />
+            </div>
+          );
         })}
       </div>
     </section>
