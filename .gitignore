@@ -57,3 +57,7 @@ infra/data/
 # Tauri signing — приватный ключ updater никогда не коммитится
 *.key
 private.pem
+.tauri-keys/
+
+# Local Claude settings (machine-specific)
+.claude/settings.local.json

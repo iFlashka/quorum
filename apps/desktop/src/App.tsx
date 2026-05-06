@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { CustomTitlebar } from '@/components/titlebar/CustomTitlebar';
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { LoginScreen } from '@/screens/LoginScreen';
@@ -23,6 +24,9 @@ import { CallOverlay } from '@/components/voice/CallOverlay';
 import { VoiceOrchestratorContext } from '@/voice/context';
 import { ChannelVoiceContext } from '@/voice/channel-context';
 import { useVoicePrefs } from '@/voice/prefs';
+import { checkForUpdate } from '@/lib/updater';
+import { useUpdater } from '@/state/updater-store';
+import { UpdaterToast } from '@/components/UpdaterToast';
 
 type Stage = 'bootstrapping' | 'onboarding' | 'login' | 'register' | 'authed';
 
@@ -44,8 +48,20 @@ export function App(): JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
       <AppInner />
+      <Toaster theme="dark" position="bottom-right" closeButton richColors />
+      <UpdaterToast />
     </QueryClientProvider>
   );
+}
+
+async function runUpdateCheck(): Promise<void> {
+  try {
+    const result = await checkForUpdate();
+    useUpdater.getState().setLastChecked(Date.now());
+    useUpdater.getState().setPending(result);
+  } catch {
+    // Сервер релизов недоступен / ничего нового — silent.
+  }
 }
 
 function AppInner(): JSX.Element {
@@ -66,6 +82,7 @@ function AppInner(): JSX.Element {
       unlistenMute = await initNotificationPrefs().catch(() => undefined);
       void useAutostart.getState().refresh();
       void useVoicePrefs.getState().hydrate();
+      void runUpdateCheck();
 
       const cfg = await loadServerConfig().catch(() => null);
       if (!cfg) {
@@ -77,8 +94,12 @@ function AppInner(): JSX.Element {
       await rt.session.bootstrap();
     })();
 
+    // Раз в час подтягиваем — пользователь редко перезапускает клиент.
+    const updateInterval = setInterval(() => void runUpdateCheck(), 60 * 60 * 1000);
+
     return () => {
       unlistenMute?.();
+      clearInterval(updateInterval);
     };
   }, [setRuntime]);
 

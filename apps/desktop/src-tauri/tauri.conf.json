@@ -43,10 +43,10 @@
     "longDescription": "Self-hosted Discord-аналог для 5–10 близких друзей. Подключается к собственному серверу Quorum."
   },
   "plugins": {
-    "//updater": "Заглушка фазы 0. В фазе 7: запустить `pnpm --filter @quorum/desktop tauri signer generate -- -w ~/.tauri/quorum.key`, public подложить в pubkey, private — в GitHub Secrets как TAURI_SIGNING_PRIVATE_KEY. См. .claude/memory/project_auto_update.md.",
     "updater": {
-      "active": false,
-      "pubkey": "",
+      "//": "Public key — base64 minisign-format. Приватный лежит в .tauri-keys/ (gitignored), для CI копируется в GitHub Secrets как TAURI_SIGNING_PRIVATE_KEY. Endpoint placeholder OWNER/REPO заменить при деплое.",
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ4QUJERjU4RjM3RjlDQUEKUldTcW5IL3pXTityU0NET2FSVlgwRnlQZ0E4M1RFbWRZdkVoNU9uL05JSEREYXk0TkxLZnVXYSsK",
       "endpoints": [
         "https://github.com/OWNER/REPO/releases/latest/download/latest.json"
       ]
