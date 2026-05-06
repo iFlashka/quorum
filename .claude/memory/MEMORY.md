@@ -12,6 +12,7 @@
 - [project_phase1_decisions.md](project_phase1_decisions.md) — конкретные решения фазы 1 (auth, refresh-rotation, ловушка с FK, keychain через keyring-rs)
 - [project_phase3_decisions.md](project_phase3_decisions.md) — фаза 3: tray, mute через Rust, mention-фильтрация, badge через подмену иконки
 - [project_phase4_decisions.md](project_phase4_decisions.md) — фаза 4: WebRTC 1:1, TURN ephemeral creds, voice FSM, PTT через global-shortcut
+- [project_phase5_decisions.md](project_phase5_decisions.md) — фаза 5: LiveKit SFU для group voice, JWT-токены, разделение 1:1 vs group
 
 ## Feedback
 

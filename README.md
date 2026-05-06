@@ -6,7 +6,7 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 
 ## Текущий статус
 
-**Фазы 0–4 закрыты.** Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна; голосовые звонки 1-на-1 через WebRTC с TURN-relay (наш coturn), push-to-talk и WebRTC-шумодав.
+**Фазы 0–5 закрыты** (RNNoise WASM отложен). Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна; голосовые звонки 1-на-1 через WebRTC с TURN-relay (наш coturn), push-to-talk и WebRTC-шумодав; групповые голосовые каналы через self-hosted LiveKit SFU.
 
 См. полный план фаз в [PROJECT.md](PROJECT.md#план-работы--фазы).
 
@@ -28,6 +28,14 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 - В UserCardMenu → «Голос»: режим (`Голосовая активация` / `Push-to-talk`), shortcut PTT (по умолчанию `Shift+Space`), WebRTC-флаги шумодава (все включены по дефолту).
 - Звонить можно только участникам, с которыми есть общая гилда.
 - Если требуется TURN-relay — клиент берёт ephemeral creds через `GET /turn/credentials` (HMAC-SHA1 по RFC). В dev secret лежит в `apps/server/.env::TURN_SHARED_SECRET` (тот же что в `infra/coturn/turnserver.conf::static-auth-secret`).
+
+### Голосовые каналы (LiveKit)
+
+- Voice-канал в ChannelSidebar — клик присоединяет, повторный — выходит.
+- Под voice-каналом виден список подключённых участников; зелёное кольцо вокруг аватара — кто сейчас говорит.
+- Над user-card появляется панель «Голосовой канал» с leave-кнопкой пока ты подключён.
+- Конфликт: если идёт 1-на-1 звонок, voice-канал disabled с подсказкой; и наоборот.
+- LiveKit-секреты в `apps/server/.env::LIVEKIT_API_KEY/SECRET/WS_URL` (совпадают с `infra/livekit/livekit.yaml::keys`).
 
 ## Требования к окружению
 
