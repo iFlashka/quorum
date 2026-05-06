@@ -234,6 +234,33 @@ function AppScreenWithBridge(): JSX.Element {
           useRealtime.getState().incrementMention(message.channelId);
         }
       },
+      onDmMessageCreate: (message) => {
+        // System-сообщения (call_*) не делают шум.
+        if (message.kind !== 'text') return;
+        // Для DM mention считается "любое сообщение от пира" — оно прямо
+        // тебе адресовано. Шумим как mention-sound и шлём toast если окно
+        // не сфокусировано (через тот же maybeNotifyMention с подменой
+        // channelName на peer-имя).
+        if (message.author.id === meId) return;
+        void maybeNotifyMention(
+          {
+            // PublicDmMessage совместим по полям с MentionContext.message,
+            // но channelId-поля нет — используем dm-channel-id как surrogate.
+            message: {
+              ...message,
+              channelId: message.dmChannelId,
+              mentionedUserIds: [meId],
+            },
+            channelName: message.author.displayName || message.author.username,
+            authorDisplayName: message.author.displayName || message.author.username,
+          },
+          meId,
+        );
+        maybePlayMentionSound(
+          { ...message, channelId: message.dmChannelId, mentionedUserIds: [meId] },
+          meId,
+        );
+      },
     });
   }, [runtime, queryClient, meId]);
 

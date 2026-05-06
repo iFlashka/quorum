@@ -7,13 +7,9 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import type {
-  ListMembersResponse,
-  PublicDmMessage,
-  PublicMember,
-} from '@quorum/shared';
+import type { PublicDmMessage } from '@quorum/shared';
 import { useDmMessages } from '@/hooks/use-dm';
+import { useMembersIndex } from '@/hooks/use-members-index';
 import { Skeleton } from '@/components/Skeleton';
 import { Message } from './Message';
 import { DateDivider, sameDay } from './DateDivider';
@@ -30,20 +26,7 @@ interface DmMessageListProps {
 export function DmMessageList({ dmChannelId, peerName }: DmMessageListProps): JSX.Element {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useDmMessages(dmChannelId);
-  const qc = useQueryClient();
-
-  const userById = useMemo(() => {
-    // Резолвим имя автора через members-кеши всех гилд (DM-сообщения от
-    // юзеров которые точно в общей гилде с нами).
-    const map = new Map<string, PublicMember>();
-    const queries = qc.getQueryCache().findAll({ queryKey: ['members'] });
-    for (const entry of queries) {
-      const r = entry.state.data as ListMembersResponse | undefined;
-      if (!r?.members) continue;
-      for (const m of r.members) if (!map.has(m.userId)) map.set(m.userId, m);
-    }
-    return map;
-  }, [qc]);
+  const userById = useMembersIndex();
 
   const flat = useMemo(() => {
     if (!data) return [];

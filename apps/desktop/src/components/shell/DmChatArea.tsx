@@ -7,10 +7,9 @@
  */
 
 import { Phone, Pin, Search, UserPlus, Video } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
-import type { ListMembersResponse, PublicMember } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useDmChannels } from '@/hooks/use-dm';
+import { useMembersIndex } from '@/hooks/use-members-index';
 import { useSelection } from '@/state/selection';
 import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
@@ -27,10 +26,11 @@ export function DmChatArea(): JSX.Element {
   const dmChannelId = useSelection((s) => s.dmChannelId);
   const { data } = useDmChannels();
   const dm = data?.channels.find((c) => c.id === dmChannelId);
+  const membersIndex = useMembersIndex();
 
   const peerId = dm ? (dm.userAId === meId ? dm.userBId : dm.userAId) : null;
-  const peer = useResolvePeer(peerId);
-  const peerName = peer?.displayName ?? peer?.username ?? '@user';
+  const peer = peerId ? membersIndex.get(peerId) : undefined;
+  const peerName = peer?.displayName ?? peer?.username ?? '...';
 
   const callPhase = useVoice((s) => s.phase);
   const orchestrator = useVoiceOrchestrator();
@@ -104,19 +104,6 @@ export function DmChatArea(): JSX.Element {
       )}
     </main>
   );
-}
-
-function useResolvePeer(peerId: string | null): PublicMember | undefined {
-  const qc = useQueryClient();
-  if (!peerId) return undefined;
-  const queries = qc.getQueryCache().findAll({ queryKey: ['members'] });
-  for (const entry of queries) {
-    const data = entry.state.data as ListMembersResponse | undefined;
-    if (!data?.members) continue;
-    const found = data.members.find((m) => m.userId === peerId);
-    if (found) return found;
-  }
-  return undefined;
 }
 
 interface HeaderIconProps {

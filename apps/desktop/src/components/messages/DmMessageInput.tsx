@@ -5,8 +5,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, Smile } from 'lucide-react';
+import { CornerUpLeft, Plus, Smile, X } from 'lucide-react';
 import { useSendDm } from '@/hooks/use-dm';
+import { useReply } from '@/state/reply-store';
 import { ApiError } from '@/api/client';
 import { cn } from '@/lib/utils';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
@@ -21,6 +22,10 @@ export function DmMessageInput({ dmChannelId, peerName }: DmMessageInputProps): 
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const sendMut = useSendDm(dmChannelId);
+  // Reply-state: per-channel в общем сторе. dmChannelId используется как ключ,
+  // как и channelId — не пересекаются с гилд-каналами потому что UUID-разные.
+  const replyTarget = useReply((s) => s.byChannel.get(dmChannelId));
+  const clearReply = useReply((s) => s.clearReply);
 
   // При смене канала сбрасываем draft.
   useEffect(() => {
@@ -34,9 +39,15 @@ export function DmMessageInput({ dmChannelId, peerName }: DmMessageInputProps): 
     if (!content) return;
     setError(null);
     sendMut.mutate(
-      { content },
       {
-        onSuccess: () => setDraft(''),
+        content,
+        ...(replyTarget ? { replyToMessageId: replyTarget.messageId } : {}),
+      },
+      {
+        onSuccess: () => {
+          setDraft('');
+          clearReply(dmChannelId);
+        },
         onError: (err: unknown) => {
           if (err instanceof ApiError) setError(err.message);
           else if (err instanceof Error) setError(err.message);
@@ -52,9 +63,28 @@ export function DmMessageInput({ dmChannelId, peerName }: DmMessageInputProps): 
 
   return (
     <footer className="relative px-4 pt-2 pb-6">
+      {replyTarget && (
+        <div className="flex items-center gap-2 rounded-t-lg bg-bg-elevated/95 px-4 py-1.5 text-[13px] text-text-secondary">
+          <CornerUpLeft size={14} className="shrink-0 text-text-muted" />
+          <span className="shrink-0 text-text-muted">Ответить</span>
+          <span className="shrink-0 font-semibold text-text-primary">
+            {replyTarget.authorDisplayName}
+          </span>
+          <span className="truncate text-text-muted">{replyTarget.contentPreview}</span>
+          <button
+            type="button"
+            onClick={() => clearReply(dmChannelId)}
+            aria-label="Отменить reply"
+            className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+          >
+            <X size={12} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
       <div
         className={cn(
-          'flex items-end gap-3 rounded-lg bg-bg-elevated px-4 py-[11px]',
+          'flex items-end gap-3 bg-bg-elevated px-4 py-[11px]',
+          replyTarget ? 'rounded-b-lg' : 'rounded-lg',
           sendMut.isPending && 'opacity-60',
         )}
       >
@@ -73,6 +103,10 @@ export function DmMessageInput({ dmChannelId, peerName }: DmMessageInputProps): 
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               onSubmit();
+            }
+            if (e.key === 'Escape' && replyTarget) {
+              e.preventDefault();
+              clearReply(dmChannelId);
             }
           }}
           rows={1}

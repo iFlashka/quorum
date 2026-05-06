@@ -37,6 +37,8 @@ export interface RealtimeBridgeOptions {
    * принимает caller (App.tsx) — он знает meId, lookup имени канала и т.п.
    */
   onMessageCreate?: (message: PublicMessage) => void;
+  /** То же для DM-сообщений — отдельный callback потому что у dm нет channelId. */
+  onDmMessageCreate?: (message: PublicDmMessage) => void;
 }
 
 export function attachRealtimeBridge(
@@ -117,6 +119,7 @@ function handleEvent(
       );
       // dm-list-кеш меняется (last-message preview) — invalidate.
       void qc.invalidateQueries({ queryKey: ['dm-list'] });
+      options.onDmMessageCreate?.(event.message);
       return;
 
     case 'dm.message.update':

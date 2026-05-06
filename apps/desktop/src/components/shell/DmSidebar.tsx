@@ -8,14 +8,10 @@
  * Friends/Active contacts/«Найти беседу» — отложено в T3.
  */
 
-import { useQueryClient } from '@tanstack/react-query';
-import type {
-  ListMembersResponse,
-  PublicDmChannelListEntry,
-  PublicMember,
-} from '@quorum/shared';
+import type { PublicDmChannelListEntry, PublicMember } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useDmChannels } from '@/hooks/use-dm';
+import { useMembersIndex } from '@/hooks/use-members-index';
 import { useSelection } from '@/state/selection';
 import { Skeleton } from '@/components/Skeleton';
 import { EmptyState } from '@/components/EmptyState';
@@ -30,6 +26,7 @@ export function DmSidebar(): JSX.Element {
   const setDmChannel = useSelection((s) => s.setDmChannel);
   const { data, isLoading } = useDmChannels();
   const channels = data?.channels ?? [];
+  const membersIndex = useMembersIndex();
 
   return (
     <aside className="flex w-[240px] shrink-0 flex-col bg-bg-darker">
@@ -65,6 +62,7 @@ export function DmSidebar(): JSX.Element {
                 <DmChannelRow
                   dm={dm}
                   meId={meId}
+                  membersIndex={membersIndex}
                   active={dm.id === dmChannelId}
                   onClick={() => setDmChannel(dm.id)}
                 />
@@ -82,14 +80,21 @@ export function DmSidebar(): JSX.Element {
 interface DmChannelRowProps {
   dm: PublicDmChannelListEntry;
   meId: string | undefined;
+  membersIndex: Map<string, PublicMember>;
   active: boolean;
   onClick: () => void;
 }
 
-function DmChannelRow({ dm, meId, active, onClick }: DmChannelRowProps): JSX.Element {
+function DmChannelRow({
+  dm,
+  meId,
+  membersIndex,
+  active,
+  onClick,
+}: DmChannelRowProps): JSX.Element {
   const peerId = dm.userAId === meId ? dm.userBId : dm.userAId;
-  const peer = useResolvePeer(peerId);
-  const displayName = peer?.displayName ?? peer?.username ?? '@user';
+  const peer = membersIndex.get(peerId);
+  const displayName = peer?.displayName ?? peer?.username ?? '...';
 
   return (
     <button
@@ -131,19 +136,3 @@ function DmChannelRow({ dm, meId, active, onClick }: DmChannelRowProps): JSX.Ele
   );
 }
 
-/**
- * Разрешает peer'а через members-кеши всех гилд напрямую из QueryClient
- * (без отдельных useQuery-вызовов в loop'е — это нарушает Rules of Hooks).
- * Если peer ни в одной из загруженных members-кешей — возвращает undefined.
- */
-function useResolvePeer(peerId: string): PublicMember | undefined {
-  const qc = useQueryClient();
-  const memberQueries = qc.getQueryCache().findAll({ queryKey: ['members'] });
-  for (const entry of memberQueries) {
-    const data = entry.state.data as ListMembersResponse | undefined;
-    if (!data?.members) continue;
-    const found = data.members.find((m) => m.userId === peerId);
-    if (found) return found;
-  }
-  return undefined;
-}
