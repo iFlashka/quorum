@@ -10,13 +10,27 @@ import { MemberAvatar } from './MemberAvatar';
 import { cn } from '@/lib/utils';
 import { roleColorStyle } from '@/lib/role-color';
 
-const ROLE_LABEL = {
-  owner: 'OWNER',
-  admin: 'ADMINS',
-  member: 'MEMBERS',
+/**
+ * Discord-style группировка участников:
+ *   1. Сверху — секции hoisted-ролей (owner=«Владельцы», admin=«Админы»)
+ *      только для тех, кто online/idle/dnd.
+ *   2. Затем «В сети — N» — все участники с role=member, не offline.
+ *   3. Внизу — «Не в сети — N» — все offline (любых ролей), полупрозрачные.
+ *
+ * Внутри каждой секции — сортировка по nickname/displayName.
+ */
+const HOISTED_LABEL = {
+  owner: 'Владельцы',
+  admin: 'Админы',
 } as const;
 
-const ROLE_ORDER = ['owner', 'admin', 'member'] as const;
+type OverlaidMember = PublicMember;
+
+interface Section {
+  key: string;
+  label: string;
+  members: OverlaidMember[];
+}
 
 export function MemberList(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -25,41 +39,72 @@ export function MemberList(): JSX.Element {
   const members = data?.members ?? [];
 
   // Применяем live-presence поверх БД-status (если WS прислал свежее значение).
-  const overlaid = members.map((m) => ({
+  const overlaid: OverlaidMember[] = members.map((m) => ({
     ...m,
     status: presence.get(m.userId) ?? m.status,
   }));
 
-  const grouped = overlaid.reduce<Record<string, typeof overlaid>>((acc, m) => {
-    (acc[m.role] ??= []).push(m);
-    return acc;
-  }, {});
+  const sections = buildSections(overlaid);
 
   return (
     <aside className="flex w-[240px] shrink-0 flex-col overflow-y-auto bg-bg-darker pt-4 pr-2 pl-2">
       {isLoading && members.length === 0 && (
         <div className="px-2 text-[13px] text-text-muted">Загрузка участников…</div>
       )}
-      {ROLE_ORDER.map((role) => {
-        const list = grouped[role];
-        if (!list || list.length === 0) return null;
-        return (
-          <section key={role} className="mb-3">
-            <h3 className="px-2 pb-1 text-[12px] font-semibold tracking-wide text-text-muted uppercase">
-              {ROLE_LABEL[role]} — {list.length}
-            </h3>
-            <ul className="space-y-0.5">
-              {list.map((member) => (
-                <li key={member.id}>
-                  <MemberRow member={member} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      {sections.map((section) => (
+        <section key={section.key} className="mb-3">
+          <h3 className="px-2 pb-1 text-[12px] font-semibold tracking-wide text-text-muted uppercase">
+            {section.label} — {section.members.length}
+          </h3>
+          <ul className="space-y-0.5">
+            {section.members.map((member) => (
+              <li key={member.id}>
+                <MemberRow member={member} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </aside>
   );
+}
+
+function buildSections(members: OverlaidMember[]): Section[] {
+  const owners: OverlaidMember[] = [];
+  const admins: OverlaidMember[] = [];
+  const onlineMembers: OverlaidMember[] = [];
+  const offline: OverlaidMember[] = [];
+
+  for (const m of members) {
+    if (m.status === 'offline') {
+      offline.push(m);
+      continue;
+    }
+    if (m.role === 'owner') owners.push(m);
+    else if (m.role === 'admin') admins.push(m);
+    else onlineMembers.push(m);
+  }
+
+  const cmp = (a: OverlaidMember, b: OverlaidMember): number => {
+    const an = a.nickname ?? a.displayName ?? a.username;
+    const bn = b.nickname ?? b.displayName ?? b.username;
+    return an.localeCompare(bn, 'ru');
+  };
+  owners.sort(cmp);
+  admins.sort(cmp);
+  onlineMembers.sort(cmp);
+  offline.sort(cmp);
+
+  const out: Section[] = [];
+  if (owners.length > 0)
+    out.push({ key: 'owner', label: HOISTED_LABEL.owner, members: owners });
+  if (admins.length > 0)
+    out.push({ key: 'admin', label: HOISTED_LABEL.admin, members: admins });
+  if (onlineMembers.length > 0)
+    out.push({ key: 'online', label: 'В сети', members: onlineMembers });
+  if (offline.length > 0)
+    out.push({ key: 'offline', label: 'Не в сети', members: offline });
+  return out;
 }
 
 function MemberRow({ member }: { member: PublicMember }): JSX.Element {

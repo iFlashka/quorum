@@ -78,7 +78,7 @@ export function MessageList(): JSX.Element {
 
   // ID сообщения, перед которым нужно нарисовать «Новое»-divider.
   const newBoundaryId = useMemo(() => {
-    if (!unreadSnapshot || unreadSnapshot.channelId !== channelId) return null;
+    if (unreadSnapshot?.channelId !== channelId) return null;
     const { lastReadId } = unreadSnapshot;
     if (!lastReadId) return null;
     const lastReadIdx = flat.findIndex((m) => m.id === lastReadId);
