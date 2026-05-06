@@ -18,6 +18,7 @@ import {
   type InputProfile,
   type VoiceMode,
 } from '@/voice/prefs';
+import { ScreenSharePicker } from '@/components/voice/ScreenSharePicker';
 import { cn } from '@/lib/utils';
 
 const ACTIVATION_OPTIONS: { value: VoiceMode; label: string; hint: string }[] = [
@@ -258,6 +259,18 @@ export function VoiceSection(): JSX.Element {
           />
         </section>
       )}
+
+      {/* 5. Качество трансляции — embedded picker */}
+      <section>
+        <h3 className="mb-3 text-[12px] font-semibold tracking-wide text-text-muted uppercase">
+          Качество трансляции экрана
+        </h3>
+        <ScreenSharePicker mode="settings" />
+        <p className="mt-2 text-[11px] text-text-muted">
+          Применяется только к голосовым каналам (LiveKit). 1:1 звонки идут
+          напрямую и адаптируются автоматически.
+        </p>
+      </section>
     </div>
   );
 }
