@@ -6,7 +6,7 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 
 ## Текущий статус
 
-**Фазы 0–5 закрыты** (RNNoise WASM отложен). Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна; голосовые звонки 1-на-1 через WebRTC с TURN-relay (наш coturn), push-to-talk и WebRTC-шумодав; групповые голосовые каналы через self-hosted LiveKit SFU.
+**Фазы 0–6 закрыты** (RNNoise WASM, background blur отложены на фазу 7). Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна; голосовые звонки 1-на-1 через WebRTC с TURN-relay (наш coturn), push-to-talk и WebRTC-шумодав; групповые голосовые каналы через self-hosted LiveKit SFU.
 
 См. полный план фаз в [PROJECT.md](PROJECT.md#план-работы--фазы).
 

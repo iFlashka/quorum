@@ -5,6 +5,8 @@ import { useTypersByChannel } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
 import { MessageList } from '@/components/messages/MessageList';
 import { MessageInput } from '@/components/messages/MessageInput';
+import { useChannelVoice } from '@/voice/channel-store';
+import { VoiceChannelGrid } from '@/components/voice/VoiceChannelGrid';
 
 export function ChatArea(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -63,9 +65,7 @@ export function ChatArea(): JSX.Element {
       </header>
 
       {channel?.kind === 'voice' ? (
-        <div className="flex flex-1 items-center justify-center text-text-muted">
-          Голосовые каналы появятся в фазе 5
-        </div>
+        <VoiceChannelView channelId={channelId} channelName={channel.name} />
       ) : (
         <>
           <MessageList />
@@ -78,6 +78,33 @@ export function ChatArea(): JSX.Element {
         </>
       )}
     </main>
+  );
+}
+
+function VoiceChannelView({
+  channelId,
+  channelName,
+}: {
+  channelId: string | null;
+  channelName: string;
+}): JSX.Element {
+  const activeChannelId = useChannelVoice((s) => s.channelId);
+  const isActive = activeChannelId === channelId;
+
+  if (!isActive) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-text-muted">
+        <Volume2 size={48} strokeWidth={1.5} className="text-text-muted" />
+        <div className="text-[15px]">#{channelName}</div>
+        <div className="text-[13px]">Подключитесь к каналу из левой колонки</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col bg-bg-deepest">
+      <VoiceChannelGrid />
+    </div>
   );
 }
 

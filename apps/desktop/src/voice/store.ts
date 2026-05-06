@@ -32,6 +32,14 @@ interface VoiceState {
   isOfferer: boolean;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  /** Локальная камера (видео-stream от getUserMedia). */
+  localCameraStream: MediaStream | null;
+  /** Локальный screenshare-stream (от getDisplayMedia). */
+  localScreenStream: MediaStream | null;
+  /** Remote-стрим камеры собеседника. */
+  remoteCameraStream: MediaStream | null;
+  /** Remote-стрим экрана собеседника. */
+  remoteScreenStream: MediaStream | null;
   muted: boolean;
   deafened: boolean;
   /** RTCPeerConnection state — для UI-индикатора качества. */
@@ -46,6 +54,10 @@ interface VoiceState {
   setActive: () => void;
   setLocalStream: (s: MediaStream | null) => void;
   setRemoteStream: (s: MediaStream | null) => void;
+  setLocalCamera: (s: MediaStream | null) => void;
+  setLocalScreen: (s: MediaStream | null) => void;
+  setRemoteCamera: (s: MediaStream | null) => void;
+  setRemoteScreen: (s: MediaStream | null) => void;
   setMuted: (muted: boolean) => void;
   setDeafened: (deafened: boolean) => void;
   setConnectionState: (s: RTCPeerConnectionState | 'new') => void;
@@ -61,6 +73,10 @@ const INITIAL: Pick<
   | 'isOfferer'
   | 'localStream'
   | 'remoteStream'
+  | 'localCameraStream'
+  | 'localScreenStream'
+  | 'remoteCameraStream'
+  | 'remoteScreenStream'
   | 'muted'
   | 'deafened'
   | 'connectionState'
@@ -72,6 +88,10 @@ const INITIAL: Pick<
   isOfferer: false,
   localStream: null,
   remoteStream: null,
+  localCameraStream: null,
+  localScreenStream: null,
+  remoteCameraStream: null,
+  remoteScreenStream: null,
   muted: false,
   deafened: false,
   connectionState: 'new',
@@ -90,6 +110,10 @@ export const useVoice = create<VoiceState>((set) => ({
   setActive: () => set({ phase: 'active' }),
   setLocalStream: (localStream) => set({ localStream }),
   setRemoteStream: (remoteStream) => set({ remoteStream }),
+  setLocalCamera: (localCameraStream) => set({ localCameraStream }),
+  setLocalScreen: (localScreenStream) => set({ localScreenStream }),
+  setRemoteCamera: (remoteCameraStream) => set({ remoteCameraStream }),
+  setRemoteScreen: (remoteScreenStream) => set({ remoteScreenStream }),
   setMuted: (muted) => set({ muted }),
   setDeafened: (deafened) => set({ deafened }),
   setConnectionState: (connectionState) => set({ connectionState }),

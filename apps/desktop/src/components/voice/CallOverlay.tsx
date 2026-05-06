@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Headphones, HeadphoneOff, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import {
+  Headphones,
+  HeadphoneOff,
+  Mic,
+  MicOff,
+  Monitor,
+  MonitorOff,
+  Phone,
+  PhoneOff,
+  Video,
+  VideoOff,
+} from 'lucide-react';
 import { useVoice, type CallPhase } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
+import { VideoTile } from './VideoTile';
 import { cn } from '@/lib/utils';
 
 const PHASE_LABEL: Record<Exclude<CallPhase, 'idle'>, string> = {
@@ -13,11 +25,11 @@ const PHASE_LABEL: Record<Exclude<CallPhase, 'idle'>, string> = {
 };
 
 /**
- * Single overlay для всех состояний звонка:
- *   - ringing → fullscreen-modal с Accept/Decline
- *   - calling/connecting/active → компактная плашка снизу-по-центру
- *
- * Отрисовывается поверх всего, поэтому подключается на уровне App.
+ * Overlay для всех состояний 1:1 звонка. Layouts:
+ *   - ringing → fullscreen modal с Accept/Decline.
+ *   - calling/connecting/active без видео → компактная плашка снизу-по-центру.
+ *   - active с видео → fullscreen video view с picture-in-picture для local
+ *     camera + control bar внизу.
  */
 export function CallOverlay(): JSX.Element | null {
   const phase = useVoice((s) => s.phase);
@@ -25,12 +37,15 @@ export function CallOverlay(): JSX.Element | null {
   const muted = useVoice((s) => s.muted);
   const deafened = useVoice((s) => s.deafened);
   const remoteStream = useVoice((s) => s.remoteStream);
+  const localCamera = useVoice((s) => s.localCameraStream);
+  const localScreen = useVoice((s) => s.localScreenStream);
+  const remoteCamera = useVoice((s) => s.remoteCameraStream);
+  const remoteScreen = useVoice((s) => s.remoteScreenStream);
   const connectionState = useVoice((s) => s.connectionState);
   const orchestrator = useVoiceOrchestrator();
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Подключаем remote-track в скрытый <audio> элемент. Deafen → muted на нём.
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
@@ -47,6 +62,14 @@ export function CallOverlay(): JSX.Element | null {
 
   const peerName = peer?.displayName ?? peer?.username ?? '...';
   const initials = useMemoInitials(peerName);
+
+  const hasVideo =
+    localCamera !== null ||
+    localScreen !== null ||
+    remoteCamera !== null ||
+    remoteScreen !== null;
+  const cameraOn = localCamera !== null;
+  const screenOn = localScreen !== null;
 
   if (phase === 'idle') return null;
 
@@ -83,7 +106,54 @@ export function CallOverlay(): JSX.Element | null {
     );
   }
 
-  // Активный/исходящий звонок — мини-плашка над user-card.
+  if (hasVideo) {
+    // Full-screen video view: главный фрейм + PiP local + controls внизу.
+    const mainStream = remoteScreen ?? localScreen ?? remoteCamera;
+    const mainName = remoteScreen
+      ? `${peerName} — экран`
+      : localScreen
+        ? 'Ваш экран'
+        : peerName;
+    return (
+      <div className="fixed inset-0 z-[55] flex flex-col bg-black">
+        <div className="relative flex-1 p-4">
+          <VideoTile
+            stream={mainStream}
+            name={mainName}
+            speaking={false}
+            large
+            className="h-full"
+          />
+          {localCamera && (
+            <div className="absolute right-6 bottom-24 w-48">
+              <VideoTile
+                stream={localCamera}
+                name="Вы"
+                mirror
+                muted={muted}
+              />
+            </div>
+          )}
+        </div>
+        <ControlsBar
+          phase={phase}
+          muted={muted}
+          deafened={deafened}
+          cameraOn={cameraOn}
+          screenOn={screenOn}
+          connectionState={connectionState}
+          onMute={() => orchestrator.toggleMute()}
+          onDeafen={() => orchestrator.toggleDeafen()}
+          onCamera={() => void orchestrator.toggleCamera()}
+          onScreen={() => void orchestrator.toggleScreenShare()}
+          onHangup={() => orchestrator.hangup()}
+        />
+        <audio ref={audioRef} autoPlay hidden />
+      </div>
+    );
+  }
+
+  // Active без видео — компактная плашка снизу.
   return (
     <div className="fixed bottom-3 left-1/2 z-50 -translate-x-1/2">
       <div className="flex items-center gap-3 rounded-xl bg-bg-elevated px-4 py-3 shadow-elevated">
@@ -113,6 +183,22 @@ export function CallOverlay(): JSX.Element | null {
           >
             {deafened ? <HeadphoneOff size={16} /> : <Headphones size={16} />}
           </CircleButton>
+          <CircleButton
+            title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+            active={cameraOn}
+            onClick={() => void orchestrator.toggleCamera()}
+            disabled={phase !== 'active'}
+          >
+            {cameraOn ? <Video size={16} /> : <VideoOff size={16} />}
+          </CircleButton>
+          <CircleButton
+            title={screenOn ? 'Остановить трансляцию' : 'Транслировать экран'}
+            active={screenOn}
+            onClick={() => void orchestrator.toggleScreenShare()}
+            disabled={phase !== 'active'}
+          >
+            {screenOn ? <MonitorOff size={16} /> : <Monitor size={16} />}
+          </CircleButton>
           <button
             type="button"
             onClick={() => orchestrator.hangup()}
@@ -124,6 +210,80 @@ export function CallOverlay(): JSX.Element | null {
         </div>
       </div>
       <audio ref={audioRef} autoPlay hidden />
+    </div>
+  );
+}
+
+interface ControlsBarProps {
+  phase: CallPhase;
+  muted: boolean;
+  deafened: boolean;
+  cameraOn: boolean;
+  screenOn: boolean;
+  connectionState: RTCPeerConnectionState | 'new';
+  onMute: () => void;
+  onDeafen: () => void;
+  onCamera: () => void;
+  onScreen: () => void;
+  onHangup: () => void;
+}
+
+function ControlsBar(props: ControlsBarProps): JSX.Element {
+  const {
+    phase,
+    muted,
+    deafened,
+    cameraOn,
+    screenOn,
+    connectionState,
+    onMute,
+    onDeafen,
+    onCamera,
+    onScreen,
+    onHangup,
+  } = props;
+  return (
+    <div className="flex items-center justify-center gap-3 bg-bg-deepest/90 px-4 py-3 backdrop-blur">
+      <span className="absolute left-4 text-[12px] text-text-muted">
+        {PHASE_LABEL[phase as Exclude<CallPhase, 'idle'>]}
+        {connectionStateLabel(connectionState, phase)}
+      </span>
+      <CircleButton
+        title={muted ? 'Включить микрофон' : 'Выключить микрофон'}
+        active={muted}
+        onClick={onMute}
+      >
+        {muted ? <MicOff size={18} /> : <Mic size={18} />}
+      </CircleButton>
+      <CircleButton
+        title={deafened ? 'Включить звук' : 'Выключить звук'}
+        active={deafened}
+        onClick={onDeafen}
+      >
+        {deafened ? <HeadphoneOff size={18} /> : <Headphones size={18} />}
+      </CircleButton>
+      <CircleButton
+        title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
+        active={cameraOn}
+        onClick={onCamera}
+      >
+        {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
+      </CircleButton>
+      <CircleButton
+        title={screenOn ? 'Остановить трансляцию' : 'Транслировать экран'}
+        active={screenOn}
+        onClick={onScreen}
+      >
+        {screenOn ? <MonitorOff size={18} /> : <Monitor size={18} />}
+      </CircleButton>
+      <button
+        type="button"
+        onClick={onHangup}
+        title="Завершить"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-danger text-white transition-colors hover:bg-red-600"
+      >
+        <PhoneOff size={18} />
+      </button>
     </div>
   );
 }
@@ -171,7 +331,7 @@ function CircleButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+        'flex h-10 w-10 items-center justify-center rounded-full transition-colors disabled:opacity-50',
         active
           ? 'bg-accent-danger text-white hover:bg-red-600'
           : 'bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -188,6 +348,6 @@ function connectionStateLabel(
 ): string {
   if (phase !== 'active') return '';
   if (state === 'connected') return '';
-  if (state === 'disconnected' || state === 'failed') return '· разрыв';
-  return '· подключение';
+  if (state === 'disconnected' || state === 'failed') return ' · разрыв';
+  return ' · подключение';
 }

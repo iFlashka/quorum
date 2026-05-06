@@ -158,6 +158,14 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
         case 'call.ice':
           calls.forwardIce(authenticatedUserId, event.callId, event.candidate);
           break;
+        case 'call.media':
+          calls.forwardMedia(
+            authenticatedUserId,
+            event.callId,
+            event.cameraStreamId,
+            event.screenStreamId,
+          );
+          break;
         case 'voice.channel.join':
           void voiceChannels.join(authenticatedUserId, event.channelId);
           break;

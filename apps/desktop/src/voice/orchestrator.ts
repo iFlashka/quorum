@@ -3,9 +3,10 @@
  * orchestrator на сессию приложения; запускается после auth и живёт пока
  * runtime жив.
  *
- * UI зовёт `placeCall / accept / decline / cancel / hangup / toggleMute /
- * toggleDeafen` — orchestrator делает все side-effects (WS, getUserMedia,
- * создание peer'а, обновление стора).
+ * Camera/screen в 1:1 — perfect-negotiation pattern: любая сторона может
+ * добавить track, RTCPeerConnection emit'ит negotiationneeded, peer шлёт
+ * offer через WS. На полученный offer в момент когда у нас есть свой
+ * outstanding — caller (impolite) игнорирует, callee (polite) откатывает.
  */
 
 import type { ServerEvent } from '@quorum/shared';
@@ -13,7 +14,12 @@ import type { WebSocketManager } from '@/realtime/WebSocketManager';
 import type { CallsApi } from '@/api/calls';
 import { useVoice, type VoiceParticipant } from './store';
 import { VoicePeer } from './peer';
-import { getMicrophoneStream, stopStream } from './devices';
+import {
+  getCameraStream,
+  getMicrophoneStream,
+  getScreenShareStream,
+  stopStream,
+} from './devices';
 import { useVoicePrefs } from './prefs';
 import { bindPtt, unbindPtt } from './ptt';
 
@@ -28,16 +34,19 @@ interface VoiceOrchestratorDeps {
 
 export class VoiceOrchestrator {
   private peer: VoicePeer | null = null;
-  /**
-   * `true` после того как peer создан И к нему подцеплен local stream
-   * (готов принимать offer/answer и иметь sender-track). До этого момента
-   * остальные сигналинг-события (offer / ice) кэшируются.
-   */
+  /** Готов ли peer принимать offer'ы (audio attached). */
   private peerReady = false;
+  /** Pending media (offer / map), пришли до peerReady. */
   private pendingOffer: { callId: string; sdp: string } | null = null;
+  private pendingRemoteMedia: {
+    cameraStreamId: string | null;
+    screenStreamId: string | null;
+  } | null = null;
   private cachedIceServers: RTCIceServer[] = [];
   private iceExpiresAt = 0;
   private offWs: (() => void) | null = null;
+  /** Восстанавливаемое состояние mute, чтобы un-deafen возвращал mic в исходное. */
+  private mutedBeforeDeafen: boolean | null = null;
 
   constructor(private readonly deps: VoiceOrchestratorDeps) {}
 
@@ -109,29 +118,68 @@ export class VoiceOrchestrator {
     this.peer?.setMuted(next);
   }
 
-  /** Восстанавливаемое состояние mute, чтобы un-deafen возвращал mic в исходное. */
-  private mutedBeforeDeafen: boolean | null = null;
-
   toggleDeafen(): void {
     const state = useVoice.getState();
     const nextDeafened = !state.deafened;
     state.setDeafened(nextDeafened);
 
     if (nextDeafened) {
-      // Discord-like: deafen ⇒ автоматически mute; запоминаем предыдущее mute
-      // чтобы un-deafen вернул как было.
       this.mutedBeforeDeafen = state.muted;
       if (!state.muted) {
         state.setMuted(true);
         this.peer?.setMuted(true);
       }
     } else {
-      // Un-deafen: восстанавливаем mute как было ДО deafen.
       const restored = this.mutedBeforeDeafen ?? false;
       this.mutedBeforeDeafen = null;
       if (state.muted !== restored) {
         state.setMuted(restored);
         this.peer?.setMuted(restored);
+      }
+    }
+  }
+
+  async toggleCamera(): Promise<void> {
+    if (!this.peer) return;
+    const state = useVoice.getState();
+    if (state.localCameraStream) {
+      // Выключаем
+      stopStream(state.localCameraStream);
+      this.peer.setCameraStream(null);
+      state.setLocalCamera(null);
+    } else {
+      try {
+        const stream = await getCameraStream();
+        this.peer.setCameraStream(stream);
+        state.setLocalCamera(stream);
+      } catch {
+        state.setError('camera_unavailable');
+      }
+    }
+  }
+
+  async toggleScreenShare(): Promise<void> {
+    if (!this.peer) return;
+    const state = useVoice.getState();
+    if (state.localScreenStream) {
+      stopStream(state.localScreenStream);
+      this.peer.setScreenStream(null);
+      state.setLocalScreen(null);
+    } else {
+      try {
+        const stream = await getScreenShareStream();
+        this.peer.setScreenStream(stream);
+        state.setLocalScreen(stream);
+        // Если юзер закрыл share через UI Windows — сам track ends → выключаем.
+        const track = stream.getVideoTracks()[0];
+        track?.addEventListener('ended', () => {
+          if (useVoice.getState().localScreenStream === stream) {
+            this.peer?.setScreenStream(null);
+            useVoice.getState().setLocalScreen(null);
+          }
+        });
+      } catch {
+        state.setError('screen_unavailable');
       }
     }
   }
@@ -154,17 +202,15 @@ export class VoiceOrchestrator {
       case 'call.offer':
         if (!this.matchCall(event.callId)) return;
         if (!this.peer || !this.peerReady) {
-          // Стрим ещё не получен (getUserMedia в работе или ждёт permission) —
-          // запоминаем offer и применим как только локальный stream готов.
           this.pendingOffer = { callId: event.callId, sdp: event.sdp };
           return;
         }
-        await this.applyOffer(event.callId, event.sdp);
+        await this.applyRemoteOffer(event.sdp);
         return;
       case 'call.answer':
         if (!this.matchCall(event.callId) || !this.peer) return;
         try {
-          await this.peer.applyAnswer(event.sdp);
+          await this.peer.applyRemoteAnswer(event.sdp);
         } catch {
           this.tearDown('webrtc_answer_failed');
         }
@@ -172,6 +218,17 @@ export class VoiceOrchestrator {
       case 'call.ice':
         if (!this.matchCall(event.callId) || !this.peer) return;
         await this.peer.addRemoteIce(event.candidate);
+        return;
+      case 'call.media':
+        if (!this.matchCall(event.callId)) return;
+        if (!this.peer || !this.peerReady) {
+          this.pendingRemoteMedia = {
+            cameraStreamId: event.cameraStreamId,
+            screenStreamId: event.screenStreamId,
+          };
+          return;
+        }
+        this.peer.setRemoteStreamMap(event.cameraStreamId, event.screenStreamId);
         return;
       default:
         return;
@@ -183,13 +240,10 @@ export class VoiceOrchestrator {
     if (!meId) return;
     const state = useVoice.getState();
     if (fromUserId === meId) {
-      // Эхо собственного invite: запоминаем callId для последующих cancel/hangup.
       if (state.phase === 'calling') state.setCallId(callId);
       return;
     }
-    // Incoming.
     if (state.phase !== 'idle') {
-      // Мы заняты — отбиваем сразу.
       this.deps.ws.send({ t: 'call.decline', callId, reason: 'busy' });
       return;
     }
@@ -210,11 +264,31 @@ export class VoiceOrchestrator {
       const iceServers = await this.fetchIceServers();
       const peer = new VoicePeer({
         iceServers,
+        impolite: state.isOfferer,
         onLocalIce: (candidate) => {
           this.deps.ws.send({ t: 'call.ice', callId, candidate });
         },
-        onRemoteTrack: (stream) => {
+        onLocalSdp: (sdp, type) => {
+          this.deps.ws.send({
+            t: type === 'offer' ? 'call.offer' : 'call.answer',
+            callId,
+            sdp,
+          });
+        },
+        onRemoteAudio: (stream) => {
           useVoice.getState().setRemoteStream(stream);
+        },
+        onRemoteVideo: (stream, source) => {
+          if (source === 'camera') useVoice.getState().setRemoteCamera(stream);
+          else if (source === 'screen') useVoice.getState().setRemoteScreen(stream);
+        },
+        onLocalStreamsChanged: (cameraStreamId, screenStreamId) => {
+          this.deps.ws.send({
+            t: 'call.media',
+            callId,
+            cameraStreamId,
+            screenStreamId,
+          });
         },
         onStateChange: (connState) => {
           useVoice.getState().setConnectionState(connState);
@@ -234,26 +308,31 @@ export class VoiceOrchestrator {
         echoCancellation: prefs.echoCancellation,
         autoGainControl: prefs.autoGainControl,
       });
-      peer.attachLocalStream(stream);
+      peer.attachLocalAudio(stream);
       useVoice.getState().setLocalStream(stream);
       this.peerReady = true;
 
-      // Если offer уже прилетал, пока ждали микрофон — применяем сейчас.
+      // Pending media (map от другой стороны), пришла пока ждали микрофон.
+      if (this.pendingRemoteMedia) {
+        peer.setRemoteStreamMap(
+          this.pendingRemoteMedia.cameraStreamId,
+          this.pendingRemoteMedia.screenStreamId,
+        );
+        this.pendingRemoteMedia = null;
+      }
+      // Pending offer.
       if (this.pendingOffer?.callId === callId) {
         const offer = this.pendingOffer;
         this.pendingOffer = null;
-        await this.applyOffer(offer.callId, offer.sdp);
+        await this.applyRemoteOffer(offer.sdp);
       }
 
-      // PTT — стартовое состояние mic = выключен; включается на keyDown хоткея.
       if (prefs.mode === 'push-to-talk') {
         peer.setMuted(true);
         useVoice.getState().setMuted(true);
         await bindPtt(prefs.pttShortcut, {
           onPress: () => {
             const s = useVoice.getState();
-            // Не перетираем явный mute из меню/UI — если юзер сам выключил мик,
-            // PTT не включает; включаем только если muted был выставлен нами.
             if (s.phase !== 'active' && s.phase !== 'connecting') return;
             s.setMuted(false);
             this.peer?.setMuted(false);
@@ -268,22 +347,18 @@ export class VoiceOrchestrator {
       }
 
       if (state.isOfferer) {
-        const sdp = await peer.createOffer();
-        this.deps.ws.send({ t: 'call.offer', callId, sdp });
+        await peer.forceOffer();
       }
-      // Если answerer — peer ждёт offer от другой стороны.
     } catch (err) {
       this.tearDown(err instanceof Error ? err.message : 'media_error');
-      // Информируем пир.
       this.deps.ws.send({ t: 'call.hangup', callId });
     }
   }
 
-  private async applyOffer(callId: string, sdp: string): Promise<void> {
+  private async applyRemoteOffer(sdp: string): Promise<void> {
     if (!this.peer) return;
     try {
-      const answer = await this.peer.applyOffer(sdp);
-      this.deps.ws.send({ t: 'call.answer', callId, sdp: answer });
+      await this.peer.applyRemoteOffer(sdp);
     } catch {
       this.tearDown('webrtc_offer_failed');
     }
@@ -310,17 +385,18 @@ export class VoiceOrchestrator {
   }
 
   private tearDown(error?: string): void {
-    const { localStream } = useVoice.getState();
-    stopStream(localStream);
+    const state = useVoice.getState();
+    stopStream(state.localStream);
+    stopStream(state.localCameraStream);
+    stopStream(state.localScreenStream);
     this.peer?.close();
     this.peer = null;
     this.peerReady = false;
     this.pendingOffer = null;
+    this.pendingRemoteMedia = null;
     this.mutedBeforeDeafen = null;
     void unbindPtt();
-    if (error) {
-      useVoice.getState().setError(error);
-    }
+    if (error) state.setError(error);
     useVoice.getState().reset();
   }
 }

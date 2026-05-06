@@ -82,6 +82,19 @@ export const ClientCallIceSchema = z.object({
   candidate: z.string(),
 });
 
+/**
+ * Маппинг наших исходящих video-stream-id → семантика (camera | screen).
+ * Шлётся каждый раз когда мы добавляем/убираем video-stream, ДО renegotiation.
+ * Принимающая сторона использует это чтобы определить какой
+ * `RTCTrackEvent.streams[0].id` относится к камере, а какой к screenshare.
+ */
+export const ClientCallMediaSchema = z.object({
+  t: z.literal('call.media'),
+  callId: z.string().uuid(),
+  cameraStreamId: z.string().nullable(),
+  screenStreamId: z.string().nullable(),
+});
+
 // ---------- Voice-channel membership: client → server ----------
 
 export const ClientVoiceChannelJoinSchema = z.object({
@@ -107,6 +120,7 @@ export const ClientEventSchema = z.discriminatedUnion('t', [
   ClientCallOfferSchema,
   ClientCallAnswerSchema,
   ClientCallIceSchema,
+  ClientCallMediaSchema,
   ClientVoiceChannelJoinSchema,
   ClientVoiceChannelLeaveSchema,
 ]);
@@ -222,6 +236,12 @@ export const ServerCallIceSchema = z.object({
   callId: z.string().uuid(),
   candidate: z.string(),
 });
+export const ServerCallMediaSchema = z.object({
+  t: z.literal('call.media'),
+  callId: z.string().uuid(),
+  cameraStreamId: z.string().nullable(),
+  screenStreamId: z.string().nullable(),
+});
 
 /**
  * Снапшот участников голосового канала. Сервер шлёт при каждом изменении
@@ -254,6 +274,7 @@ export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerCallOfferSchema,
   ServerCallAnswerSchema,
   ServerCallIceSchema,
+  ServerCallMediaSchema,
   ServerVoiceChannelStateSchema,
   ServerErrorSchema,
 ]);

@@ -1,11 +1,11 @@
 /**
  * Тонкая обёртка над LiveKit `Room` SDK для голосового канала.
  *
- * - `join(token, wsUrl, channelId, options)` → connect, publish microphone.
- * - `leave()` → disconnect.
- * - `setMuted(muted)` → enable/disable LocalAudioTrack.
- * - На события Room (participants connected/disconnected, speaking, mute)
- *   зеркалим в `useChannelVoice`-store, чтобы UI не зависел от SDK напрямую.
+ * - `join` → connect + publish микрофона.
+ * - `setMuted(muted)` — local audio mute.
+ * - `setCameraEnabled(on)` — публикация камеры (LiveKit сам делает getUserMedia).
+ * - `setScreenShareEnabled(on)` — `getDisplayMedia` через LiveKit.
+ * - На событиях LiveKit Room зеркалим в `useChannelVoice`-store.
  */
 
 import {
@@ -33,7 +33,7 @@ export interface JoinOptions {
 export class LivekitRoom {
   private room: Room | null = null;
   private localAudioTrack: LocalAudioTrack | null = null;
-  /** Audio-элементы для каждого remote-track, чтобы воспроизводить голос. */
+  /** Audio-элементы для каждого remote-audio-track. */
   private readonly attachedAudio = new Map<string, HTMLAudioElement>();
 
   async join(opts: JoinOptions): Promise<void> {
@@ -46,23 +46,25 @@ export class LivekitRoom {
         echoCancellation: prefs.echoCancellation,
         noiseSuppression: prefs.noiseSuppression,
       },
+      videoCaptureDefaults: {
+        resolution: { width: 1280, height: 720, frameRate: 30 },
+      },
     });
     this.room = room;
     this.bindEvents(room, opts.myUserId);
 
-    // Сразу регистрируем себя в store — UI должен видеть «Подключение…».
     useChannelVoice.getState().upsertParticipant({
       userId: opts.myUserId,
       name: opts.myDisplayName,
       audioEnabled: false,
       speaking: false,
       isLocal: true,
+      cameraTrack: null,
+      screenTrack: null,
     });
 
     await room.connect(opts.wsUrl, opts.token);
 
-    // Публикуем микрофон сразу. PTT-режим всё равно включает publish;
-    // mute управляется через track.mute (см. setMuted).
     await room.localParticipant.setMicrophoneEnabled(true);
     const audioPub = Array.from(room.localParticipant.audioTrackPublications.values())[0];
     if (audioPub?.track) {
@@ -72,7 +74,6 @@ export class LivekitRoom {
       audioEnabled: true,
     });
 
-    // Если в комнате уже кто-то был — добавляем их в store.
     for (const remote of room.remoteParticipants.values()) {
       this.addRemoteParticipant(remote);
     }
@@ -80,13 +81,26 @@ export class LivekitRoom {
 
   async setMuted(muted: boolean): Promise<void> {
     if (!this.localAudioTrack || !this.room) return;
-    if (muted) {
-      await this.localAudioTrack.mute();
-    } else {
-      await this.localAudioTrack.unmute();
-    }
+    if (muted) await this.localAudioTrack.mute();
+    else await this.localAudioTrack.unmute();
     const myId = this.room.localParticipant.identity;
     useChannelVoice.getState().patchParticipant(myId, { audioEnabled: !muted });
+  }
+
+  async setCameraEnabled(on: boolean): Promise<void> {
+    if (!this.room) return;
+    await this.room.localParticipant.setCameraEnabled(on);
+    const myId = this.room.localParticipant.identity;
+    const stream = on ? this.collectLocalCameraStream() : null;
+    useChannelVoice.getState().patchParticipant(myId, { cameraTrack: stream });
+  }
+
+  async setScreenShareEnabled(on: boolean): Promise<void> {
+    if (!this.room) return;
+    await this.room.localParticipant.setScreenShareEnabled(on);
+    const myId = this.room.localParticipant.identity;
+    const stream = on ? this.collectLocalScreenStream() : null;
+    useChannelVoice.getState().patchParticipant(myId, { screenTrack: stream });
   }
 
   async leave(): Promise<void> {
@@ -104,6 +118,26 @@ export class LivekitRoom {
 
   // ---- internals ----
 
+  private collectLocalCameraStream(): MediaStream | null {
+    if (!this.room) return null;
+    for (const pub of this.room.localParticipant.videoTrackPublications.values()) {
+      if (pub.source === Track.Source.Camera && pub.track) {
+        return pub.track.mediaStream ?? null;
+      }
+    }
+    return null;
+  }
+
+  private collectLocalScreenStream(): MediaStream | null {
+    if (!this.room) return null;
+    for (const pub of this.room.localParticipant.videoTrackPublications.values()) {
+      if (pub.source === Track.Source.ScreenShare && pub.track) {
+        return pub.track.mediaStream ?? null;
+      }
+    }
+    return null;
+  }
+
   private bindEvents(room: Room, myUserId: string): void {
     room.on(RoomEvent.ParticipantConnected, (p) => this.addRemoteParticipant(p));
     room.on(RoomEvent.ParticipantDisconnected, (p) => {
@@ -112,9 +146,9 @@ export class LivekitRoom {
     });
     room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
       const speakingIds = new Set(speakers.map((s) => s.identity));
-      const all = new Set([
-        ...room.remoteParticipants.values(),
-      ].map((p) => p.identity));
+      const all = new Set(
+        [...room.remoteParticipants.values()].map((p) => p.identity),
+      );
       all.add(myUserId);
       for (const userId of all) {
         useChannelVoice.getState().patchParticipant(userId, {
@@ -122,21 +156,23 @@ export class LivekitRoom {
         });
       }
     });
-    room.on(RoomEvent.TrackMuted, (_pub, p) => {
-      useChannelVoice.getState().patchParticipant(p.identity, { audioEnabled: false });
+    room.on(RoomEvent.TrackMuted, (pub, p) => {
+      if (pub.kind === Track.Kind.Audio) {
+        useChannelVoice.getState().patchParticipant(p.identity, { audioEnabled: false });
+      }
     });
-    room.on(RoomEvent.TrackUnmuted, (_pub, p) => {
-      useChannelVoice.getState().patchParticipant(p.identity, { audioEnabled: true });
+    room.on(RoomEvent.TrackUnmuted, (pub, p) => {
+      if (pub.kind === Track.Kind.Audio) {
+        useChannelVoice.getState().patchParticipant(p.identity, { audioEnabled: true });
+      }
     });
-    room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-      this.attachRemoteTrack(track, participant);
+    room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      this.attachRemoteTrack(track, pub, participant);
     });
-    room.on(RoomEvent.TrackUnsubscribed, (_track, pub, p) => {
-      this.detachAudio(pub.trackSid);
-      void p;
+    room.on(RoomEvent.TrackUnsubscribed, (track, pub, participant) => {
+      this.detachRemoteTrack(track, pub, participant);
     });
     room.on(RoomEvent.Disconnected, () => {
-      // Само отвалилось — UI решит, переходим в idle.
       useChannelVoice.getState().reset();
     });
   }
@@ -149,16 +185,50 @@ export class LivekitRoom {
       audioEnabled: audioPub ? !audioPub.isMuted : false,
       speaking: p.isSpeaking,
       isLocal: false,
+      cameraTrack: null,
+      screenTrack: null,
     };
     useChannelVoice.getState().upsertParticipant(participant);
   }
 
-  private attachRemoteTrack(track: RemoteTrack, _p: RemoteParticipant): void {
-    if (track.kind !== Track.Kind.Audio) return;
-    const audio = track.attach();
-    audio.autoplay = true;
-    document.body.appendChild(audio);
-    this.attachedAudio.set(track.sid ?? `${Math.random()}`, audio);
+  private attachRemoteTrack(
+    track: RemoteTrack,
+    pub: RemoteTrackPublication,
+    p: RemoteParticipant,
+  ): void {
+    if (track.kind === Track.Kind.Audio) {
+      const audio = track.attach();
+      audio.autoplay = true;
+      document.body.appendChild(audio);
+      this.attachedAudio.set(track.sid ?? `${Math.random()}`, audio);
+      return;
+    }
+    if (track.kind === Track.Kind.Video) {
+      const stream = track.mediaStream ?? null;
+      if (pub.source === Track.Source.Camera) {
+        useChannelVoice.getState().patchParticipant(p.identity, { cameraTrack: stream });
+      } else if (pub.source === Track.Source.ScreenShare) {
+        useChannelVoice.getState().patchParticipant(p.identity, { screenTrack: stream });
+      }
+    }
+  }
+
+  private detachRemoteTrack(
+    track: RemoteTrack,
+    pub: RemoteTrackPublication,
+    p: RemoteParticipant,
+  ): void {
+    if (track.kind === Track.Kind.Audio) {
+      this.detachAudio(track.sid ?? '');
+      return;
+    }
+    if (track.kind === Track.Kind.Video) {
+      if (pub.source === Track.Source.Camera) {
+        useChannelVoice.getState().patchParticipant(p.identity, { cameraTrack: null });
+      } else if (pub.source === Track.Source.ScreenShare) {
+        useChannelVoice.getState().patchParticipant(p.identity, { screenTrack: null });
+      }
+    }
   }
 
   private detachAudio(trackSid: string): void {
@@ -171,7 +241,7 @@ export class LivekitRoom {
 
   private detachRemoteTracks(p: RemoteParticipant | Participant): void {
     for (const pub of p.trackPublications.values()) {
-      if (pub instanceof Object && 'trackSid' in pub) {
+      if ('trackSid' in pub) {
         this.detachAudio((pub as RemoteTrackPublication).trackSid);
       }
     }

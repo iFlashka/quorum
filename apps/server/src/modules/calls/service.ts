@@ -162,6 +162,22 @@ export class CallsService {
     this.events.publishToUser(peer, { t: 'call.ice', callId, candidate });
   }
 
+  forwardMedia(
+    userId: string,
+    callId: string,
+    cameraStreamId: string | null,
+    screenStreamId: string | null,
+  ): void {
+    const peer = this.peerOf(userId, callId, 'active');
+    if (!peer) return;
+    this.events.publishToUser(peer, {
+      t: 'call.media',
+      callId,
+      cameraStreamId,
+      screenStreamId,
+    });
+  }
+
   /** Для тестов и graceful shutdown. */
   shutdown(): void {
     for (const call of this.calls.values()) this.clearTimeout(call);

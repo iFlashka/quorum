@@ -40,10 +40,34 @@ type: project
 - [ ] **Leave**: жми Leave → у тебя плашка пропадает, у других ты исчезаешь из списка.
 - [ ] **audioCaptureDefaults**: выруби Noise Suppression в Voice settings → перезайди в Lounge → собеседники слышат больше шумов (флаги применяются при создании Room).
 
-## Известные ограничения (НЕ баг — отложено)
+## Фаза 6 — Видео и screenshare
+
+### 1:1 видео (peer-to-peer)
+
+- [ ] **Camera в 1:1**: запусти звонок → жми camera-кнопку → собеседник видит твоё видео. Layout превращается в fullscreen video view с PiP внизу-справа.
+- [ ] **Local mirror**: твой PiP-preview зеркальный (как в Discord/Zoom).
+- [ ] **Camera off**: повторный клик по camera → видео исчезает у собеседника, layout возвращается к мини-плашке если у обоих видео off.
+- [ ] **Screenshare в 1:1**: жми screenshare → Windows picker → выбери окно/экран → собеседник видит твой экран.
+- [ ] **Screenshare-priority**: если кто-то screenshare'ит, остальные тайлы должны уйти в боковую strip (для group). Для 1:1 — main фрейм screenshare.
+- [ ] **Camera + Screenshare одновременно**: оба track'а одновременно, у получателя оба попадают в правильные source'ы.
+- [ ] **Auto-stop screenshare через системное «прекратить»**: закрой share через Windows-overlay → у тебя screenshare-state выключается, у собеседника пропадает.
+- [ ] **Renegotiation flow**: оба клиента одновременно жмут camera. Должно сработать без glare (caller=impolite игнорит, callee=polite откатывает).
+
+### Group видео (LiveKit)
+
+- [ ] **Camera в Lounge**: подключись к каналу → жми camera в `VoiceChannelBar` → Windows promt → разреши → твой тайл появляется в `VoiceChannelGrid` с видео.
+- [ ] **Несколько cameras**: ещё один участник включает камеру → grid auto-fit раскладывает оба.
+- [ ] **Screenshare в Lounge**: жми screen → твой экран занимает main, остальные тайлы уходят в боковую strip.
+- [ ] **Speaking-ring в video grid**: говорящий имеет зелёное кольцо вокруг тайла.
+- [ ] **Mic-off бейдж**: muted participant имеет красный mic-off-overlay в углу тайла.
+- [ ] **Leave с включённым видео**: leave-button корректно отрубает все tracks, у других ты исчезаешь.
+
+### Известные ограничения
 
 - **RNNoise WASM (слой 2 шумодава)** — фаза 5.1 / 7.
-- **Deafen для group voice** — UI не выведен. Leave даёт тот же эффект.
-- **Click-через-toast → конкретный канал** (Tauri 2.x ограничение).
-- **Auto-promote 1:1 → group** при подключении третьего.
+- **Background blur / virtual backgrounds** — фаза 7 (отдельный WebGL/WASM piece).
+- **Screenshare audio** — отключено по умолчанию, toggle в settings отложен.
+- **Promote 1:1 → group** при подключении третьего — нелинейный state-transition, отложено.
+- **Deafen для group voice** — UI не выведен (leave работает как эквивалент).
 - **TLS на LiveKit для prod** — фаза 7 (Caddy + wss://).
+- **Тесты orchestrator после рефакторa в фазе 6** — старые удалены, новые писать с perfect-negotiation моком.

@@ -94,6 +94,28 @@ export class ChannelVoiceOrchestrator {
     await this.room.setMuted(next);
   }
 
+  async toggleCamera(): Promise<void> {
+    if (!this.room) return;
+    const me = this.deps.getMe();
+    if (!me) return;
+    const current = useChannelVoice.getState().participants.get(me.id);
+    const on = !current?.cameraTrack;
+    await this.room.setCameraEnabled(on).catch(() => {
+      useChannelVoice.getState().setError('camera_unavailable');
+    });
+  }
+
+  async toggleScreenShare(): Promise<void> {
+    if (!this.room) return;
+    const me = this.deps.getMe();
+    if (!me) return;
+    const current = useChannelVoice.getState().participants.get(me.id);
+    const on = !current?.screenTrack;
+    await this.room.setScreenShareEnabled(on).catch(() => {
+      useChannelVoice.getState().setError('screen_unavailable');
+    });
+  }
+
   private async tearDown(): Promise<void> {
     void unbindPtt();
     const channelId = useChannelVoice.getState().channelId;

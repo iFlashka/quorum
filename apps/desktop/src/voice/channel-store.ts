@@ -24,6 +24,10 @@ export interface ChannelParticipant {
   speaking: boolean;
   /** True для нас самих — UI рисует «вы». */
   isLocal: boolean;
+  /** MediaStream камеры participant'а (если он включил). */
+  cameraTrack: MediaStream | null;
+  /** MediaStream screenshare'а participant'а. */
+  screenTrack: MediaStream | null;
 }
 
 interface ChannelState {

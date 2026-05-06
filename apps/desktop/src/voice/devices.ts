@@ -27,6 +27,46 @@ export async function getMicrophoneStream(opts: MicrophoneOptions = {}): Promise
   return navigator.mediaDevices.getUserMedia(constraints);
 }
 
+export interface CameraOptions {
+  deviceId?: string;
+}
+
+export async function getCameraStream(opts: CameraOptions = {}): Promise<MediaStream> {
+  const constraints: MediaStreamConstraints = {
+    audio: false,
+    video: {
+      ...(opts.deviceId ? { deviceId: { exact: opts.deviceId } } : {}),
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 30, max: 30 },
+    },
+  };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  // contentHint = 'motion' — подсказка кодеку оптимизировать под движение.
+  for (const track of stream.getVideoTracks()) {
+    track.contentHint = 'motion';
+  }
+  return stream;
+}
+
+/**
+ * Получает экран через `getDisplayMedia`. На Windows — открывается system-picker
+ * (выбор окна/экрана). По умолчанию — без системного звука.
+ */
+export async function getScreenShareStream(): Promise<MediaStream> {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: {
+      frameRate: { ideal: 30, max: 30 },
+    } as MediaTrackConstraints,
+    audio: false,
+  });
+  // contentHint = 'detail' для текста/UI; 'motion' если игра/видео. По дефолту detail.
+  for (const track of stream.getVideoTracks()) {
+    track.contentHint = 'detail';
+  }
+  return stream;
+}
+
 export function stopStream(stream: MediaStream | null): void {
   if (!stream) return;
   for (const track of stream.getTracks()) {
