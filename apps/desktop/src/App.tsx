@@ -195,22 +195,23 @@ function AppScreenWithBridge(): JSX.Element {
     void applyBadge(unreadCount);
   }, [unreadCount]);
 
+  // useMemo factory может вызываться дважды в StrictMode dev — оставляем
+  // её детерминированной (только конструктор), а start/stop парим
+  // через useEffect, чьи cleanup-ы корректно сбалансированы.
   const voiceOrchestrator = useMemo(() => {
     if (!runtime) return null;
-    const o = new VoiceOrchestrator({
+    return new VoiceOrchestrator({
       ws: runtime.ws,
       callsApi: runtime.callsApi,
       lookupParticipant: (userId) => lookupParticipantInCache(queryClient, userId),
       getMeId: () => useAuth.getState().user?.id ?? null,
     });
-    o.start();
-    return o;
   }, [runtime, queryClient]);
 
   useEffect(() => {
-    return () => {
-      voiceOrchestrator?.stop();
-    };
+    if (!voiceOrchestrator) return;
+    voiceOrchestrator.start();
+    return () => voiceOrchestrator.stop();
   }, [voiceOrchestrator]);
 
   if (!voiceOrchestrator) return <AppScreen />;

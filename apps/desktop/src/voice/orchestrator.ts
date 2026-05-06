@@ -28,6 +28,13 @@ interface VoiceOrchestratorDeps {
 
 export class VoiceOrchestrator {
   private peer: VoicePeer | null = null;
+  /**
+   * `true` после того как peer создан И к нему подцеплен local stream
+   * (готов принимать offer/answer и иметь sender-track). До этого момента
+   * остальные сигналинг-события (offer / ice) кэшируются.
+   */
+  private peerReady = false;
+  private pendingOffer: { callId: string; sdp: string } | null = null;
   private cachedIceServers: RTCIceServer[] = [];
   private iceExpiresAt = 0;
   private offWs: (() => void) | null = null;
@@ -102,13 +109,30 @@ export class VoiceOrchestrator {
     this.peer?.setMuted(next);
   }
 
+  /** Восстанавливаемое состояние mute, чтобы un-deafen возвращал mic в исходное. */
+  private mutedBeforeDeafen: boolean | null = null;
+
   toggleDeafen(): void {
-    const next = !useVoice.getState().deafened;
-    useVoice.getState().setDeafened(next);
-    if (next && !useVoice.getState().muted) {
-      // Deafen подразумевает, что и mic тоже отключён (как в Discord).
-      useVoice.getState().setMuted(true);
-      this.peer?.setMuted(true);
+    const state = useVoice.getState();
+    const nextDeafened = !state.deafened;
+    state.setDeafened(nextDeafened);
+
+    if (nextDeafened) {
+      // Discord-like: deafen ⇒ автоматически mute; запоминаем предыдущее mute
+      // чтобы un-deafen вернул как было.
+      this.mutedBeforeDeafen = state.muted;
+      if (!state.muted) {
+        state.setMuted(true);
+        this.peer?.setMuted(true);
+      }
+    } else {
+      // Un-deafen: восстанавливаем mute как было ДО deafen.
+      const restored = this.mutedBeforeDeafen ?? false;
+      this.mutedBeforeDeafen = null;
+      if (state.muted !== restored) {
+        state.setMuted(restored);
+        this.peer?.setMuted(restored);
+      }
     }
   }
 
@@ -128,13 +152,14 @@ export class VoiceOrchestrator {
         if (this.matchCall(event.callId)) this.tearDown();
         return;
       case 'call.offer':
-        if (!this.matchCall(event.callId) || !this.peer) return;
-        try {
-          const sdp = await this.peer.applyOffer(event.sdp);
-          this.deps.ws.send({ t: 'call.answer', callId: event.callId, sdp });
-        } catch {
-          this.tearDown('webrtc_offer_failed');
+        if (!this.matchCall(event.callId)) return;
+        if (!this.peer || !this.peerReady) {
+          // Стрим ещё не получен (getUserMedia в работе или ждёт permission) —
+          // запоминаем offer и применим как только локальный stream готов.
+          this.pendingOffer = { callId: event.callId, sdp: event.sdp };
+          return;
         }
+        await this.applyOffer(event.callId, event.sdp);
         return;
       case 'call.answer':
         if (!this.matchCall(event.callId) || !this.peer) return;
@@ -211,6 +236,14 @@ export class VoiceOrchestrator {
       });
       peer.attachLocalStream(stream);
       useVoice.getState().setLocalStream(stream);
+      this.peerReady = true;
+
+      // Если offer уже прилетал, пока ждали микрофон — применяем сейчас.
+      if (this.pendingOffer?.callId === callId) {
+        const offer = this.pendingOffer;
+        this.pendingOffer = null;
+        await this.applyOffer(offer.callId, offer.sdp);
+      }
 
       // PTT — стартовое состояние mic = выключен; включается на keyDown хоткея.
       if (prefs.mode === 'push-to-talk') {
@@ -246,6 +279,16 @@ export class VoiceOrchestrator {
     }
   }
 
+  private async applyOffer(callId: string, sdp: string): Promise<void> {
+    if (!this.peer) return;
+    try {
+      const answer = await this.peer.applyOffer(sdp);
+      this.deps.ws.send({ t: 'call.answer', callId, sdp: answer });
+    } catch {
+      this.tearDown('webrtc_offer_failed');
+    }
+  }
+
   private matchCall(callId: string): boolean {
     return useVoice.getState().callId === callId;
   }
@@ -271,6 +314,9 @@ export class VoiceOrchestrator {
     stopStream(localStream);
     this.peer?.close();
     this.peer = null;
+    this.peerReady = false;
+    this.pendingOffer = null;
+    this.mutedBeforeDeafen = null;
     void unbindPtt();
     if (error) {
       useVoice.getState().setError(error);

@@ -40,10 +40,6 @@ export class VoicePeer {
     this.pc.addEventListener('connectionstatechange', () => {
       opts.onStateChange(this.pc.connectionState);
     });
-
-    // Готовим transceiver под аудио. recvonly mode на answerer'е переключится
-    // автоматически при applyOffer.
-    this.pc.addTransceiver('audio', { direction: 'sendrecv' });
   }
 
   attachLocalStream(stream: MediaStream): void {
@@ -91,9 +87,20 @@ export class VoicePeer {
   }
 
   setMuted(muted: boolean): void {
-    if (!this.localStream) return;
-    for (const track of this.localStream.getAudioTracks()) {
-      track.enabled = !muted;
+    // Идём через senders на самом RTCPeerConnection — это единственный путь,
+    // который реально влияет на исходящие пакеты, независимо от того, какие
+    // ссылки на MediaStream остались в наших полях. Дополнительно проходим по
+    // тракам localStream — на случай если sender ещё не создан (между addTrack
+    // и setLocalDescription).
+    for (const sender of this.pc.getSenders()) {
+      if (sender.track?.kind === 'audio') {
+        sender.track.enabled = !muted;
+      }
+    }
+    if (this.localStream) {
+      for (const track of this.localStream.getAudioTracks()) {
+        track.enabled = !muted;
+      }
     }
   }
 
