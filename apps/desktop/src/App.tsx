@@ -11,7 +11,7 @@ import { createAppRuntime } from '@/auth/runtime';
 import { useRuntime } from '@/auth/runtime-store';
 import { useAuth } from '@/auth/store';
 import { attachRealtimeBridge, findChannelName } from '@/realtime/realtime-bridge';
-import { useUnreadChannelsCount } from '@/realtime/store';
+import { useRealtime, useUnreadChannelsCount } from '@/realtime/store';
 import { applyBadge } from '@/lib/badge';
 import { maybeNotifyMention } from '@/lib/notifications';
 import { initNotificationPrefs } from '@/state/notification-prefs';
@@ -225,6 +225,12 @@ function AppScreenWithBridge(): JSX.Element {
         );
         maybePlayMentionSound(message, meId);
         maybePlayMessageSound(message, meId);
+        if (
+          message.author.id !== meId &&
+          message.mentionedUserIds.includes(meId)
+        ) {
+          useRealtime.getState().incrementMention(message.channelId);
+        }
       },
     });
   }, [runtime, queryClient, meId]);

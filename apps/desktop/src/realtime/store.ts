@@ -20,6 +20,8 @@ interface RealtimeState {
   lastReadByChannel: Map<string, string>;
   /** id последнего пришедшего message в канале — сравниваем с lastRead. */
   lastSeenByChannel: Map<string, string>;
+  /** Кол-во @me-упоминаний в канале с момента последнего markRead. */
+  mentionsByChannel: Map<string, number>;
   setPresence: (userId: string, status: UserStatus) => void;
   setManyPresence: (entries: { userId: string; status: UserStatus }[]) => void;
   /** Регистрирует typing-сигнал; expiresAt выставляется автоматически на now+TTL. */
@@ -31,6 +33,8 @@ interface RealtimeState {
   noteIncoming: (channelId: string, messageId: string) => void;
   /** Пользователь дочитал до messageId. */
   markRead: (channelId: string, messageId: string) => void;
+  /** В канале появился ещё один @me — увеличиваем счётчик. */
+  incrementMention: (channelId: string) => void;
 }
 
 export const useRealtime = create<RealtimeState>((set) => ({
@@ -38,6 +42,7 @@ export const useRealtime = create<RealtimeState>((set) => ({
   presence: new Map(),
   lastReadByChannel: new Map(),
   lastSeenByChannel: new Map(),
+  mentionsByChannel: new Map(),
 
   setPresence: (userId, status) =>
     set((s) => {
@@ -102,9 +107,19 @@ export const useRealtime = create<RealtimeState>((set) => ({
 
   markRead: (channelId, messageId) =>
     set((s) => {
-      const next = new Map(s.lastReadByChannel);
-      next.set(channelId, messageId);
-      return { lastReadByChannel: next };
+      const nextRead = new Map(s.lastReadByChannel);
+      nextRead.set(channelId, messageId);
+      // markRead обнуляет mention-counter — все mentions считаются прочитанными.
+      const nextMentions = new Map(s.mentionsByChannel);
+      nextMentions.delete(channelId);
+      return { lastReadByChannel: nextRead, mentionsByChannel: nextMentions };
+    }),
+
+  incrementMention: (channelId) =>
+    set((s) => {
+      const next = new Map(s.mentionsByChannel);
+      next.set(channelId, (next.get(channelId) ?? 0) + 1);
+      return { mentionsByChannel: next };
     }),
 }));
 
@@ -142,6 +157,31 @@ export function useChannelHasUnread(channelId: string): boolean {
 /** Кол-во каналов с unread — для бейджа в tray и titlebar. */
 export function useUnreadChannelsCount(): number {
   return useRealtime((s) => countUnreadChannels(s.lastSeenByChannel, s.lastReadByChannel));
+}
+
+/**
+ * True если хотя бы один из переданных каналов имеет unread (lastSeen ≠ lastRead).
+ * Используется в ServerList для агрегации по гилдам — массив channelIds должен
+ * быть стабильной ссылкой (через useShallow).
+ */
+export function useAnyChannelHasUnread(channelIds: string[]): boolean {
+  return useRealtime((s) => {
+    for (const id of channelIds) {
+      const seen = s.lastSeenByChannel.get(id);
+      if (!seen) continue;
+      if (s.lastReadByChannel.get(id) !== seen) return true;
+    }
+    return false;
+  });
+}
+
+/** Сумма @me-упоминаний по списку каналов. */
+export function useTotalMentionsAcross(channelIds: string[]): number {
+  return useRealtime((s) => {
+    let total = 0;
+    for (const id of channelIds) total += s.mentionsByChannel.get(id) ?? 0;
+    return total;
+  });
 }
 
 export function countUnreadChannels(
