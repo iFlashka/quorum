@@ -1,19 +1,40 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PublicMember, PublicMessage } from '@quorum/shared';
 import { useChannelMessages } from '@/hooks/use-messages';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useMarkRead } from '@/hooks/use-mark-read';
 import { useSelection } from '@/state/selection';
+import { useAuth } from '@/auth/store';
+import { useRealtime } from '@/realtime/store';
 import { Message } from './Message';
 import { DateDivider, sameDay } from './DateDivider';
+import { NewMessageDivider } from './NewMessageDivider';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
 export function MessageList(): JSX.Element {
   const channelId = useSelection((s) => s.channelId);
   const guildId = useSelection((s) => s.guildId);
+  const meId = useAuth((s) => s.user?.id);
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useChannelMessages(channelId);
   const { data: membersData } = useGuildMembers(guildId);
+
+  // Snapshot lastReadId на момент входа в канал — divider «Новое» рисуется
+  // перед первым сообщением, чей createdAt позже, чем у snapshot-сообщения.
+  // Не сбрасывается на mark-read, чтобы divider оставался видимым пока
+  // канал открыт.
+  const [unreadSnapshot, setUnreadSnapshot] = useState<{
+    channelId: string;
+    lastReadId: string | undefined;
+  } | null>(null);
+  useEffect(() => {
+    if (!channelId) {
+      setUnreadSnapshot(null);
+      return;
+    }
+    const lastReadId = useRealtime.getState().lastReadByChannel.get(channelId);
+    setUnreadSnapshot({ channelId, lastReadId });
+  }, [channelId]);
 
   const userById = useMemo(() => {
     const map = new Map<string, PublicMember>();
@@ -51,6 +72,20 @@ export function MessageList(): JSX.Element {
   // Авто-mark-read для последнего видимого сообщения.
   const lastMessageId = flat.length > 0 ? flat[flat.length - 1]!.id : undefined;
   useMarkRead(channelId, lastMessageId);
+
+  // ID сообщения, перед которым нужно нарисовать «Новое»-divider.
+  const newBoundaryId = useMemo(() => {
+    if (!unreadSnapshot || unreadSnapshot.channelId !== channelId) return null;
+    const { lastReadId } = unreadSnapshot;
+    if (!lastReadId) return null;
+    const lastReadIdx = flat.findIndex((m) => m.id === lastReadId);
+    if (lastReadIdx === -1) return null;
+    for (let i = lastReadIdx + 1; i < flat.length; i++) {
+      const m = flat[i]!;
+      if (m.author.id !== meId) return m.id;
+    }
+    return null;
+  }, [unreadSnapshot, flat, channelId, meId]);
 
   // Загрузка более старых при scroll up.
   const onScroll = (): void => {
@@ -94,10 +129,16 @@ export function MessageList(): JSX.Element {
             !dayChanged &&
             prev.author.id === m.author.id &&
             curDate.getTime() - new Date(prev.createdAt).getTime() < FIVE_MINUTES;
+          const isNewBoundary = m.id === newBoundaryId;
           return (
             <div key={m.id}>
               {dayChanged && <DateDivider iso={m.createdAt} />}
-              <Message message={m} grouped={grouped} userById={userById} />
+              {isNewBoundary && <NewMessageDivider />}
+              <Message
+                message={m}
+                grouped={grouped && !isNewBoundary}
+                userById={userById}
+              />
             </div>
           );
         })}
