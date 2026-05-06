@@ -13,6 +13,7 @@
 
 import { create } from 'zustand';
 import { LazyStore } from '@tauri-apps/plugin-store';
+import { DEFAULT_SCREEN_QUALITY, type ScreenQualitySettings } from '@quorum/shared';
 
 const STORE_FILE = 'voice-prefs.json';
 const KEY = 'prefs';
@@ -45,6 +46,8 @@ export interface VoicePrefs {
   inputVolume: number;
   /** Громкость динамика 0..1 (применяется к remote-audio через volume property). */
   outputVolume: number;
+  /** Настройки screen-share — пресет/resolution/fps/bitrate. */
+  screenShare: ScreenQualitySettings;
 }
 
 export const DEFAULT_PREFS: VoicePrefs = {
@@ -58,6 +61,7 @@ export const DEFAULT_PREFS: VoicePrefs = {
   outputDeviceId: '',
   inputVolume: 1,
   outputVolume: 1,
+  screenShare: DEFAULT_SCREEN_QUALITY,
 };
 
 interface VoicePrefsState extends VoicePrefs {
@@ -95,6 +99,7 @@ export const useVoicePrefs = create<VoicePrefsState>((set, get) => ({
       outputDeviceId: patch.outputDeviceId ?? cur.outputDeviceId,
       inputVolume: patch.inputVolume ?? cur.inputVolume,
       outputVolume: patch.outputVolume ?? cur.outputVolume,
+      screenShare: patch.screenShare ?? cur.screenShare,
     };
     set(next);
     try {

@@ -111,7 +111,8 @@ export class ChannelVoiceOrchestrator {
     if (!me) return;
     const current = useChannelVoice.getState().participants.get(me.id);
     const on = !current?.screenTrack;
-    await this.room.setScreenShareEnabled(on).catch(() => {
+    const quality = on ? useVoicePrefs.getState().screenShare : undefined;
+    await this.room.setScreenShareEnabled(on, quality).catch(() => {
       useChannelVoice.getState().setError('screen_unavailable');
     });
   }

@@ -4,6 +4,7 @@ export type QuorumProtocolVersion = typeof QUORUM_PROTOCOL_VERSION;
 export * from './domain/user.js';
 export * from './domain/channel.js';
 export * from './domain/message.js';
+export * from './domain/screen-quality.js';
 export * from './api/auth.js';
 export * from './api/calls.js';
 export * from './api/guilds.js';

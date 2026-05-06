@@ -17,7 +17,10 @@ import {
   type RemoteParticipant,
   type RemoteTrack,
   type RemoteTrackPublication,
+  type ScreenShareCaptureOptions,
+  type TrackPublishOptions,
 } from 'livekit-client';
+import type { ScreenQualitySettings } from '@quorum/shared';
 import { useChannelVoice, type ChannelParticipant } from './channel-store';
 import { useVoicePrefs } from './prefs';
 
@@ -95,11 +98,52 @@ export class LivekitRoom {
     useChannelVoice.getState().patchParticipant(myId, { cameraTrack: stream });
   }
 
-  async setScreenShareEnabled(on: boolean): Promise<void> {
+  /**
+   * Включить/выключить screen-share. При on=true применяется `quality` к
+   * capture (resolution/fps) и publish (codec=h264, simulcast=false,
+   * maxBitrate из bitrateKbps). При on=false — выключение, без quality.
+   */
+  async setScreenShareEnabled(
+    on: boolean,
+    quality?: ScreenQualitySettings,
+  ): Promise<void> {
     if (!this.room) return;
-    await this.room.localParticipant.setScreenShareEnabled(on);
+    if (!on) {
+      await this.room.localParticipant.setScreenShareEnabled(false);
+      const myId = this.room.localParticipant.identity;
+      useChannelVoice.getState().patchParticipant(myId, { screenTrack: null });
+      return;
+    }
+
+    const captureOptions: ScreenShareCaptureOptions | undefined = quality
+      ? {
+          resolution: {
+            width: quality.width,
+            height: quality.height,
+            frameRate: quality.frameRate,
+          },
+          // Audio из системы — оставляем дефолт (LiveKit предложит чекбокс).
+        }
+      : undefined;
+
+    const publishOptions: TrackPublishOptions | undefined = quality
+      ? {
+          videoCodec: 'h264',
+          simulcast: false,
+          videoEncoding: {
+            maxBitrate: quality.bitrateKbps * 1000,
+            maxFramerate: quality.frameRate,
+          },
+        }
+      : undefined;
+
+    await this.room.localParticipant.setScreenShareEnabled(
+      true,
+      captureOptions,
+      publishOptions,
+    );
     const myId = this.room.localParticipant.identity;
-    const stream = on ? this.collectLocalScreenStream() : null;
+    const stream = this.collectLocalScreenStream();
     useChannelVoice.getState().patchParticipant(myId, { screenTrack: stream });
   }
 
