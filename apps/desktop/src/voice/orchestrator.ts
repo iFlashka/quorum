@@ -307,6 +307,7 @@ export class VoiceOrchestrator {
         noiseSuppression: prefs.noiseSuppression,
         echoCancellation: prefs.echoCancellation,
         autoGainControl: prefs.autoGainControl,
+        ...(prefs.inputDeviceId ? { deviceId: prefs.inputDeviceId } : {}),
       });
       peer.attachLocalAudio(stream);
       useVoice.getState().setLocalStream(stream);

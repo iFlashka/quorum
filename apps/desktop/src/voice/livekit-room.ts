@@ -51,6 +51,7 @@ export class LivekitRoom {
         autoGainControl: prefs.autoGainControl,
         echoCancellation: prefs.echoCancellation,
         noiseSuppression: prefs.noiseSuppression,
+        ...(prefs.inputDeviceId ? { deviceId: prefs.inputDeviceId } : {}),
       },
       videoCaptureDefaults: {
         resolution: { width: 1280, height: 720, frameRate: 30 },
