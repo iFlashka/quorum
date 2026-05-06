@@ -63,7 +63,7 @@ function MemberRow({ member }: { member: MockMember }): JSX.Element {
         </div>
         <span
           className={cn(
-            'absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[3px] border-bg-darker',
+            'absolute -right-0.5 -bottom-0.5 h-[14px] w-[14px] rounded-full border-[2px] border-bg-darker',
             STATUS_COLOR[member.status],
           )}
         />

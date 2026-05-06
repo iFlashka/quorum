@@ -30,7 +30,7 @@ pnpm install
 # 2. Поднять инфру
 pnpm infra:up
 
-# 3. Запустить сервер (в одном терминале) — проверка GET http://localhost:3000/health
+# 3. Запустить сервер (в одном терминале) — проверка GET http://localhost:4421/health
 pnpm dev:server
 
 # 4. Запустить desktop-клиент (в другом терминале)

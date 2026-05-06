@@ -5,7 +5,7 @@
   "identifier": "app.quorum.desktop",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:4422",
     "beforeDevCommand": "pnpm --filter @quorum/desktop dev",
     "beforeBuildCommand": "pnpm --filter @quorum/desktop build"
   },

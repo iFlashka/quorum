@@ -9,6 +9,7 @@
 - [project_stack_decisions.md](project_stack_decisions.md) — почему выбраны Tauri / Fastify / LiveKit / Drizzle / pnpm
 - [project_auto_update.md](project_auto_update.md) — сквозная архитектура auto-update, что закладывается с фазы 0, критика приватного ключа
 - [project_audio_processing.md](project_audio_processing.md) — шумодав/AEC/AGC: WebRTC-флаги + RNNoise WASM, реализация в фазах 4–5
+- [project_phase1_decisions.md](project_phase1_decisions.md) — конкретные решения фазы 1 (auth, refresh-rotation, ловушка с FK, keychain через keyring-rs)
 
 ## Feedback
 

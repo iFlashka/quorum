@@ -1,12 +1,14 @@
-import { ChevronDown, Hash, Headphones, Mic, Plus, Settings, Volume2 } from 'lucide-react';
+import { ChevronDown, Hash, Headphones, Mic, Plus, Volume2 } from 'lucide-react';
 import { useState } from 'react';
-import { MOCK_CATEGORIES, MOCK_CURRENT_USER, type MockChannel } from '@/mock/fixtures';
+import { MOCK_CATEGORIES, type MockChannel } from '@/mock/fixtures';
+import { useAuth } from '@/auth/store';
 import { cn } from '@/lib/utils';
+import { UserCardMenu } from './UserCardMenu';
 
 export function ChannelSidebar(): JSX.Element {
   return (
     <aside className="flex w-[240px] shrink-0 flex-col bg-bg-darker">
-      <header className="titlebar-drag relative flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-4 shadow-sm">
+      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center justify-between px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
         <span className="truncate text-[15px] font-semibold tracking-tight text-text-primary">
           Quorum
         </span>
@@ -83,7 +85,7 @@ function ChannelButton({ channel }: { channel: MockChannel }): JSX.Element {
       )}
     >
       <Icon size={20} strokeWidth={1.75} className="shrink-0 text-text-muted" />
-      <span className={cn('truncate', channel.unread && !channel.active && 'font-medium')}>
+      <span className={cn('truncate', channel.unread && !channel.active && 'font-semibold')}>
         {channel.name}
       </span>
     </button>
@@ -91,35 +93,47 @@ function ChannelButton({ channel }: { channel: MockChannel }): JSX.Element {
 }
 
 function UserCard(): JSX.Element {
+  const user = useAuth((s) => s.user);
+  const displayName = user?.displayName ?? user?.username ?? 'You';
+  const handle = user?.username ? `@${user.username}` : 'В сети';
+  const initials = avatarInitials(displayName);
+
   return (
     <div className="flex h-[52px] shrink-0 items-center gap-1 bg-bg-deepest px-2">
-      <div className="flex flex-1 items-center gap-2 rounded px-1 py-1 hover:bg-bg-hover">
-        <div className="relative">
+      <button
+        type="button"
+        className="flex flex-1 items-center gap-2 overflow-hidden rounded px-1 py-1 text-left hover:bg-bg-hover"
+      >
+        <div className="relative shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-[13px] font-semibold text-white">
-            {MOCK_CURRENT_USER.initials}
+            {initials}
           </div>
-          <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[3px] border-bg-deepest bg-accent-success" />
+          <span className="absolute -right-0.5 -bottom-0.5 h-[14px] w-[14px] rounded-full border-[2px] border-bg-deepest bg-accent-success" />
         </div>
-        <div className="min-w-0 leading-tight">
-          <div className="truncate text-[14px] font-semibold text-text-primary">
-            {MOCK_CURRENT_USER.name}
-          </div>
-          <div className="num-tabular truncate text-[12px] text-text-muted">#0001</div>
+        <div className="min-w-0 leading-[1.15]">
+          <div className="truncate text-[14px] font-semibold text-text-primary">{displayName}</div>
+          <div className="truncate text-[12px] text-text-muted">{handle}</div>
         </div>
-      </div>
-      <div className="flex">
+      </button>
+      <div className="flex shrink-0">
         <ControlButton aria-label="mute mic">
-          <Mic size={18} strokeWidth={2} />
+          <Mic size={16} strokeWidth={1.75} />
         </ControlButton>
         <ControlButton aria-label="deafen">
-          <Headphones size={18} strokeWidth={2} />
+          <Headphones size={16} strokeWidth={1.75} />
         </ControlButton>
-        <ControlButton aria-label="settings">
-          <Settings size={18} strokeWidth={2} />
-        </ControlButton>
+        <UserCardMenu />
       </div>
     </div>
   );
+}
+
+function avatarInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '?';
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
 }
 
 function ControlButton({

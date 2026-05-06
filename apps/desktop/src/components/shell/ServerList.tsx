@@ -1,14 +1,21 @@
 import { Plus } from 'lucide-react';
-import { MOCK_GUILDS, type MockGuild } from '@/mock/fixtures';
-import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import type { PublicGuild } from '@quorum/shared';
+import { useAuth } from '@/auth/store';
+import { cn } from '@/lib/utils';
 
 export function ServerList(): JSX.Element {
-  const [activeId, setActiveId] = useState<string>(MOCK_GUILDS[0]?.id ?? '');
+  const guilds = useAuth((s) => s.guilds);
+  const [activeId, setActiveId] = useState<string>(guilds[0]?.id ?? '');
+
+  // Если активный из стейта пропал (например после выхода из гилды) — переключаемся на первый.
+  if (activeId && !guilds.some((g) => g.id === activeId) && guilds.length > 0) {
+    setActiveId(guilds[0]!.id);
+  }
 
   return (
     <nav className="flex w-[72px] shrink-0 flex-col items-center gap-2 bg-bg-deepest pt-3 pb-3">
-      {MOCK_GUILDS.map((g) => (
+      {guilds.map((g) => (
         <ServerIcon
           key={g.id}
           guild={g}
@@ -16,7 +23,7 @@ export function ServerList(): JSX.Element {
           onClick={() => setActiveId(g.id)}
         />
       ))}
-      <div className="my-1 h-0.5 w-8 rounded-full bg-border-subtle" />
+      {guilds.length > 0 && <div className="my-1 h-0.5 w-8 rounded-full bg-border-subtle" />}
       <button
         type="button"
         aria-label="add server"
@@ -30,19 +37,19 @@ export function ServerList(): JSX.Element {
 }
 
 interface ServerIconProps {
-  guild: MockGuild;
+  guild: PublicGuild;
   active: boolean;
   onClick: () => void;
 }
 
 function ServerIcon({ guild, active, onClick }: ServerIconProps): JSX.Element {
+  const initials = guildInitials(guild.name);
   return (
     <div className="group relative">
-      {/* Pill-индикатор слева — белый, скруглённый, появляется по ховеру / unread / active */}
       <span
         className={cn(
           'absolute -left-3 top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-text-primary transition-all duration-200',
-          active ? 'h-10' : guild.unread ? 'h-2' : 'h-2 scale-y-0 group-hover:h-5 group-hover:scale-y-100',
+          active ? 'h-10' : 'h-2 scale-y-0 group-hover:h-5 group-hover:scale-y-100',
         )}
       />
       <button
@@ -56,8 +63,26 @@ function ServerIcon({ guild, active, onClick }: ServerIconProps): JSX.Element {
             : 'rounded-3xl bg-bg-default text-text-primary hover:rounded-2xl hover:bg-accent-primary hover:text-white',
         )}
       >
-        {guild.initials}
+        {guild.iconUrl ? (
+          <img
+            src={guild.iconUrl}
+            alt={guild.name}
+            className={cn('h-full w-full object-cover', active ? 'rounded-2xl' : 'rounded-3xl group-hover:rounded-2xl')}
+          />
+        ) : (
+          initials
+        )}
       </button>
     </div>
   );
+}
+
+function guildInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '?';
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  }
+  return trimmed.slice(0, 2).toUpperCase();
 }

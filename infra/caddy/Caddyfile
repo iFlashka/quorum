@@ -6,7 +6,7 @@
 
 {$QUORUM_DOMAIN:quorum.example.com} {
     # Основной API + WebSocket (всё через тот же Fastify)
-    reverse_proxy server:3000
+    reverse_proxy server:4421
 
     # LiveKit signaling — отдельный сабпуть, чтобы не путать с нашим WS
     handle_path /livekit/* {

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+const TtlSchema = z
+  .string()
+  .regex(/^\d+\s*(ms|s|m|h|d|w|y)$/, 'must be a duration like "15m", "30d", "12h"');
+
 const ConfigSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
@@ -7,6 +11,14 @@ const ConfigSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
+
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+
+  JWT_ACCESS_SECRET: z.string().min(32, 'must be at least 32 chars'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'must be at least 32 chars'),
+  JWT_ACCESS_TTL: TtlSchema.default('15m'),
+  JWT_REFRESH_TTL: TtlSchema.default('30d'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

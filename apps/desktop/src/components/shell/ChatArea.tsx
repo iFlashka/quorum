@@ -4,11 +4,11 @@ import { MOCK_MESSAGES, type MockMessage } from '@/mock/fixtures';
 export function ChatArea(): JSX.Element {
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-bg-default">
-      <header className="titlebar-drag relative flex h-12 shrink-0 items-center gap-2 border-b border-border-subtle px-4 shadow-sm">
+      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center gap-2 px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
         <Hash size={24} strokeWidth={1.75} className="text-text-muted" />
         <span className="text-[16px] font-semibold tracking-tight text-text-primary">general</span>
-        <span className="mx-1 hidden h-6 w-px bg-border-subtle md:block" />
-        <span className="hidden truncate text-[13px] text-text-secondary md:block">
+        <span className="mx-2 hidden h-6 w-[2px] rounded-sm bg-bg-active md:block" />
+        <span className="hidden truncate text-[14px] text-text-secondary md:block">
           Канал по умолчанию для всех разговоров
         </span>
         <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 text-text-secondary">
