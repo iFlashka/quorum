@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { File as FileIcon, Plus, Smile, X } from 'lucide-react';
+import { CornerUpLeft, File as FileIcon, Plus, Smile, X } from 'lucide-react';
 import type { PublicAttachment, PublicMember } from '@quorum/shared';
 import { useSendMessage } from '@/hooks/use-messages';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useSelection } from '@/state/selection';
 import { useRuntime } from '@/auth/runtime-store';
+import { useReply } from '@/state/reply-store';
 import { ApiError } from '@/api/client';
 import { cn } from '@/lib/utils';
 import { serializeMentions } from '@/lib/mentions';
@@ -41,6 +42,8 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
   const attachmentsApi = useRuntime((s) => s.runtime?.attachmentsApi);
   const { data: membersData } = useGuildMembers(guildId);
   const members = useMemo(() => membersData?.members ?? [], [membersData]);
+  const replyTarget = useReply((s) => (channelId ? s.byChannel.get(channelId) : undefined));
+  const clearReply = useReply((s) => s.clearReply);
 
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +67,8 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
       }
       return [];
     });
+    // Reply-target за каналом: при смене канала старый reply сбрасываем,
+    // в новом — берём что было сохранено (по дефолту undefined).
   }, [channelId]);
 
   // На размонтирование — освобождаем object-URLs.
@@ -157,6 +162,7 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
       {
         content: content || ' ', // сервер требует min 1 символ; пробел сойдёт если только attachments
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+        ...(replyTarget ? { replyToMessageId: replyTarget.messageId } : {}),
       },
       {
         onSuccess: () => {
@@ -167,6 +173,7 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
             }
             return [];
           });
+          if (channelId) clearReply(channelId);
         },
         onError: (err: unknown) => {
           if (err instanceof ApiError) setError(err.message);
@@ -277,9 +284,29 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
         </div>
       )}
 
+      {replyTarget && channelId && (
+        <div className="flex items-center gap-2 rounded-t-lg bg-bg-elevated/95 px-4 py-1.5 text-[13px] text-text-secondary">
+          <CornerUpLeft size={14} className="shrink-0 text-text-muted" />
+          <span className="shrink-0 text-text-muted">Ответить</span>
+          <span className="shrink-0 font-semibold text-text-primary">
+            {replyTarget.authorDisplayName}
+          </span>
+          <span className="truncate text-text-muted">{replyTarget.contentPreview}</span>
+          <button
+            type="button"
+            onClick={() => clearReply(channelId)}
+            aria-label="Отменить reply"
+            className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+          >
+            <X size={12} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+
       <div
         className={cn(
-          'flex items-end gap-3 rounded-lg bg-bg-elevated px-4 py-[11px]',
+          'flex items-end gap-3 bg-bg-elevated px-4 py-[11px]',
+          replyTarget ? 'rounded-b-lg' : 'rounded-lg',
           sendMut.isPending && 'opacity-60',
         )}
       >
@@ -303,6 +330,10 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               if (!stillUploading) onSubmit();
+            }
+            if (e.key === 'Escape' && replyTarget && channelId) {
+              e.preventDefault();
+              clearReply(channelId);
             }
           }}
           rows={1}

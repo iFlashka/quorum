@@ -128,6 +128,7 @@ export function MessageList(): JSX.Element {
           const grouped =
             !!prev &&
             !dayChanged &&
+            !m.replyToMessageId &&
             prev.author.id === m.author.id &&
             curDate.getTime() - new Date(prev.createdAt).getTime() < FIVE_MINUTES;
           const isNewBoundary = m.id === newBoundaryId;

@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Pencil, SmilePlus, Trash2 } from 'lucide-react';
+import { CornerUpLeft, Pencil, SmilePlus, Trash2 } from 'lucide-react';
 import type { PublicMember, PublicMessage } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useDeleteMessage, useEditMessage, useToggleReaction } from '@/hooks/use-messages';
 import { useSelection } from '@/state/selection';
+import { useReply } from '@/state/reply-store';
 import { cn } from '@/lib/utils';
 import { roleColorStyle } from '@/lib/role-color';
 import { MemberAvatar } from '@/components/shell/MemberAvatar';
 import { AttachmentTile } from './AttachmentTile';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { ReplyContext } from './ReplyContext';
 
 interface MessageProps {
   message: PublicMessage;
@@ -28,6 +30,7 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
   const editMut = useEditMessage(channelId);
   const deleteMut = useDeleteMessage(channelId);
   const reactMut = useToggleReaction(channelId);
+  const setReply = useReply((s) => s.setReply);
 
   const isMine = me?.id === message.author.id;
   const mentionsMe = !!me && message.mentionedUserIds.includes(me.id);
@@ -54,12 +57,16 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
   return (
     <div
       className={cn(
-        'group relative flex gap-4 px-4 transition-colors hover:bg-bg-elevated',
+        'group relative transition-colors hover:bg-bg-elevated',
         grouped ? 'mt-0 py-[2px]' : 'mt-[17px] pt-[2px] pb-[2px]',
         mentionsMe &&
           'bg-[rgba(250,166,26,0.06)] before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-[#faa61a] hover:bg-[rgba(250,166,26,0.10)]',
       )}
     >
+      {message.replyToPreview && (
+        <ReplyContext preview={message.replyToPreview} userById={userById} />
+      )}
+      <div className="flex gap-4 px-4">
       {grouped ? (
         <div className="num-tabular flex w-10 shrink-0 justify-end pr-0.5 text-[10px] leading-[22px] text-text-muted opacity-0 group-hover:opacity-100">
           {formatTimestamp(message.createdAt)}
@@ -159,6 +166,7 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {!editing && (
@@ -182,6 +190,21 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
               </ActionButton>
             }
           />
+          {channelId && (
+            <ActionButton
+              title="Ответить"
+              onClick={() =>
+                setReply(channelId, {
+                  messageId: message.id,
+                  authorDisplayName:
+                    message.author.displayName || message.author.username,
+                  contentPreview: makePreview(message.content),
+                })
+              }
+            >
+              <CornerUpLeft size={16} strokeWidth={1.75} />
+            </ActionButton>
+          )}
           {isMine && (
             <ActionButton title="Редактировать" onClick={() => setEditing(true)}>
               <Pencil size={16} strokeWidth={1.75} />
@@ -225,6 +248,13 @@ function ActionButton({ danger, className, children, ...rest }: ActionButtonProp
 function formatTimestamp(iso: string): string {
   const d = new Date(iso);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const REPLY_PREVIEW_LIMIT = 80;
+function makePreview(content: string): string {
+  const cleaned = content.replace(/<@[0-9a-f-]{36}>/gi, '@…').replace(/\n+/g, ' ').trim();
+  if (cleaned.length <= REPLY_PREVIEW_LIMIT) return cleaned;
+  return cleaned.slice(0, REPLY_PREVIEW_LIMIT - 1) + '…';
 }
 
 function formatRelativeWithDate(iso: string): string {
