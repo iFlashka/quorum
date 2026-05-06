@@ -210,8 +210,25 @@ function VoiceChannelButton({ channel, active }: ChannelButtonProps): JSX.Elemen
 function UserCard(): JSX.Element {
   const user = useAuth((s) => s.user);
   const displayName = user?.displayName ?? user?.username ?? 'You';
-  const handle = user?.username ? `@${user.username}` : 'В сети';
   const initials = avatarInitials(displayName);
+
+  // Динамический статус: 1:1 звонок > voice channel > online.
+  const callPhase = useVoice((s) => s.phase);
+  const callPeer = useVoice((s) => s.peer);
+  const channelPhase = useChannelVoice((s) => s.phase);
+  const voiceChannelId = useChannelVoice((s) => s.channelId);
+  const voiceGuildId = useChannelVoice((s) => s.guildId);
+  const { data: channelsForVoiceGuild } = useGuildChannels(voiceGuildId);
+  const voiceChannel = channelsForVoiceGuild?.channels.find(
+    (c) => c.id === voiceChannelId,
+  );
+
+  const status = computeStatus({
+    callPhase,
+    callPeerName: callPeer?.displayName ?? callPeer?.username ?? null,
+    channelPhase,
+    voiceChannelName: voiceChannel?.name ?? null,
+  });
 
   return (
     <div className="flex h-[52px] shrink-0 items-center gap-1 bg-bg-deepest px-2">
@@ -227,7 +244,14 @@ function UserCard(): JSX.Element {
         </div>
         <div className="min-w-0 leading-[1.15]">
           <div className="truncate text-[14px] font-semibold text-text-primary">{displayName}</div>
-          <div className="truncate text-[12px] text-text-muted">{handle}</div>
+          <div
+            className={cn(
+              'truncate text-[12px]',
+              status.tone === 'voice' ? 'text-accent-success' : 'text-text-muted',
+            )}
+          >
+            {status.text}
+          </div>
         </div>
       </button>
       <div className="flex shrink-0">
@@ -236,6 +260,39 @@ function UserCard(): JSX.Element {
       </div>
     </div>
   );
+}
+
+interface StatusInfo {
+  text: string;
+  tone: 'idle' | 'voice';
+}
+
+function computeStatus(args: {
+  callPhase: ReturnType<typeof useVoice.getState>['phase'];
+  callPeerName: string | null;
+  channelPhase: ReturnType<typeof useChannelVoice.getState>['phase'];
+  voiceChannelName: string | null;
+}): StatusInfo {
+  if (args.callPhase === 'active' || args.callPhase === 'connecting') {
+    return {
+      text: args.callPeerName
+        ? `В звонке — ${args.callPeerName}`
+        : 'В звонке',
+      tone: 'voice',
+    };
+  }
+  if (args.callPhase === 'calling') return { text: 'Звоним…', tone: 'voice' };
+  if (args.callPhase === 'ringing') return { text: 'Входящий вызов', tone: 'voice' };
+  if (args.channelPhase === 'joined') {
+    return {
+      text: args.voiceChannelName
+        ? `В голосовом — ${args.voiceChannelName}`
+        : 'В голосовом канале',
+      tone: 'voice',
+    };
+  }
+  if (args.channelPhase === 'joining') return { text: 'Подключение…', tone: 'voice' };
+  return { text: 'В сети', tone: 'idle' };
 }
 
 /**

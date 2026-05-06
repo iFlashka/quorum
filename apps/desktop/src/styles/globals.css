@@ -135,4 +135,17 @@
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
+
+  /* Audio-meter: 4 полоски, бесшовно пульсируют по высоте. Используется в
+     VoiceChannelBar когда зафиксировано speaking-состояние участника. */
+  @keyframes meter-bar {
+    0%, 100% { transform: scaleY(0.35); }
+    50%       { transform: scaleY(1); }
+  }
+  .animate-meter-bar {
+    height: 14px;
+    animation-name: meter-bar;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-in-out;
+  }
 }
