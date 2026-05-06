@@ -12,6 +12,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 import {
   ChevronUp,
   Headphones,
@@ -229,10 +230,29 @@ function ScreenShareSplitButton({
   const updatePrefs = useVoicePrefs((s) => s.update);
 
   const onConfirm = (next: ScreenQualitySettings): void => {
-    void updatePrefs({ screenShare: next }).then(() => {
-      // Если screen-share выключен — стартуем; если активен — просто сохраняем
-      // (фаза C live-switch не реализована, применится при следующем рестарте).
-      if (!screenOn) void orchestrator.toggleScreenShare();
+    // Делаем diff ДО того как обновим prefs — иначе prev = next.
+    const prev = useVoicePrefs.getState().screenShare;
+    const bitrateChanged = prev.bitrateKbps !== next.bitrateKbps;
+    const resOrFpsChanged =
+      prev.width !== next.width ||
+      prev.height !== next.height ||
+      prev.frameRate !== next.frameRate;
+
+    void updatePrefs({ screenShare: next }).then(async () => {
+      if (!screenOn) {
+        void orchestrator.toggleScreenShare();
+        return;
+      }
+      // Live-apply: bitrate без re-publish, разрешение/fps требуют рестарт.
+      let bitrateApplied = false;
+      if (bitrateChanged) {
+        bitrateApplied = await orchestrator.applyScreenShareBitrate(next.bitrateKbps);
+      }
+      if (resOrFpsChanged) {
+        toast.info('Разрешение и FPS применятся при следующем рестарте трансляции.');
+      } else if (bitrateApplied) {
+        toast.success(`Битрейт обновлён до ${next.bitrateKbps} Кбит/с.`);
+      }
     });
     setOpen(false);
   };

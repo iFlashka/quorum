@@ -117,6 +117,16 @@ export class ChannelVoiceOrchestrator {
     });
   }
 
+  /**
+   * Прокси к LivekitRoom — применить maxBitrate live к screen-share track'е
+   * через RTCRtpSender.setParameters. Возвращает true при успехе хотя бы
+   * одной публикации.
+   */
+  async applyScreenShareBitrate(bitrateKbps: number): Promise<boolean> {
+    if (!this.room) return false;
+    return this.room.applyScreenShareBitrate(bitrateKbps);
+  }
+
   /** Toggle deafen: глушит все remote-audio + автоматически мьютит свой mic. */
   async toggleDeafen(): Promise<void> {
     if (!this.room) return;

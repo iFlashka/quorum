@@ -13,6 +13,7 @@ import {
   RoomEvent,
   Track,
   type LocalAudioTrack,
+  type LocalVideoTrack,
   type Participant,
   type RemoteParticipant,
   type RemoteTrack,
@@ -149,6 +150,42 @@ export class LivekitRoom {
     const myId = this.room.localParticipant.identity;
     const stream = this.collectLocalScreenStream();
     useChannelVoice.getState().patchParticipant(myId, { screenTrack: stream });
+  }
+
+  /**
+   * Live-смена битрейта активной screen-share track'и через
+   * RTCRtpSender.setParameters. Resolution/fps требуют re-publish (флэшит
+   * Display picker на Windows) — для них этот метод не применяется,
+   * caller'у возвращает `false` и должен решить сам.
+   */
+  async applyScreenShareBitrate(bitrateKbps: number): Promise<boolean> {
+    if (!this.room) return false;
+    const screenPubs = Array.from(
+      this.room.localParticipant.videoTrackPublications.values(),
+    ).filter((p) => p.source === Track.Source.ScreenShare);
+    if (screenPubs.length === 0) return false;
+
+    let appliedAny = false;
+    for (const pub of screenPubs) {
+      const track = pub.track as LocalVideoTrack | undefined;
+      const sender = track?.sender;
+      if (!sender) continue;
+      const params = sender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) {
+        params.encodings = [{}];
+      }
+      for (const enc of params.encodings) {
+        enc.maxBitrate = bitrateKbps * 1000;
+      }
+      try {
+        await sender.setParameters(params);
+        appliedAny = true;
+      } catch {
+        // setParameters может упасть на специфичных браузерах/codec'ах —
+        // не валим, просто возвращаем false для этого pub.
+      }
+    }
+    return appliedAny;
   }
 
   /**
