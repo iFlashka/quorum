@@ -19,12 +19,32 @@ const KEY = 'prefs';
 
 export type VoiceMode = 'voice-activity' | 'push-to-talk';
 
+/**
+ * Профиль ввода — preset поверх индивидуальных WebRTC-toggle'ов:
+ *   - voice-isolation: всё включено (стандарт Discord для шумных мест)
+ *   - studio: всё выключено (raw mic, для гитары/pro-микрофона)
+ *   - custom: каждый toggle руками
+ *
+ * UI рендерит 3 radio'а; при выборе voice-isolation/studio мы автоматически
+ * перезатираем флаги в нужные значения, при выборе custom — оставляем как есть.
+ */
+export type InputProfile = 'voice-isolation' | 'studio' | 'custom';
+
 export interface VoicePrefs {
   mode: VoiceMode;
   pttShortcut: string;
   noiseSuppression: boolean;
   echoCancellation: boolean;
   autoGainControl: boolean;
+  inputProfile: InputProfile;
+  /** deviceId выбранного микрофона. Пусто — system default. */
+  inputDeviceId: string;
+  /** deviceId выбранного динамика. Пусто — system default. */
+  outputDeviceId: string;
+  /** Громкость микрофона 0..1 (применяется как gain в getUserMedia constraints). */
+  inputVolume: number;
+  /** Громкость динамика 0..1 (применяется к remote-audio через volume property). */
+  outputVolume: number;
 }
 
 export const DEFAULT_PREFS: VoicePrefs = {
@@ -33,6 +53,11 @@ export const DEFAULT_PREFS: VoicePrefs = {
   noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,
+  inputProfile: 'voice-isolation',
+  inputDeviceId: '',
+  outputDeviceId: '',
+  inputVolume: 1,
+  outputVolume: 1,
 };
 
 interface VoicePrefsState extends VoicePrefs {
@@ -58,12 +83,18 @@ export const useVoicePrefs = create<VoicePrefsState>((set, get) => ({
   },
 
   update: async (patch): Promise<void> => {
+    const cur = get();
     const next: VoicePrefs = {
-      mode: patch.mode ?? get().mode,
-      pttShortcut: patch.pttShortcut ?? get().pttShortcut,
-      noiseSuppression: patch.noiseSuppression ?? get().noiseSuppression,
-      echoCancellation: patch.echoCancellation ?? get().echoCancellation,
-      autoGainControl: patch.autoGainControl ?? get().autoGainControl,
+      mode: patch.mode ?? cur.mode,
+      pttShortcut: patch.pttShortcut ?? cur.pttShortcut,
+      noiseSuppression: patch.noiseSuppression ?? cur.noiseSuppression,
+      echoCancellation: patch.echoCancellation ?? cur.echoCancellation,
+      autoGainControl: patch.autoGainControl ?? cur.autoGainControl,
+      inputProfile: patch.inputProfile ?? cur.inputProfile,
+      inputDeviceId: patch.inputDeviceId ?? cur.inputDeviceId,
+      outputDeviceId: patch.outputDeviceId ?? cur.outputDeviceId,
+      inputVolume: patch.inputVolume ?? cur.inputVolume,
+      outputVolume: patch.outputVolume ?? cur.outputVolume,
     };
     set(next);
     try {
