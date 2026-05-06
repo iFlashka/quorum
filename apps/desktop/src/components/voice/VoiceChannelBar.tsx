@@ -10,22 +10,27 @@
  *   └─────────────────────────────────────┘
  */
 
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
+  ChevronUp,
   Headphones,
   HeadphoneOff,
   Mic,
   MicOff,
   Monitor,
-  MonitorOff,
   PhoneOff,
   Video,
   VideoOff,
 } from 'lucide-react';
 import { useShallow } from 'zustand/shallow';
+import type { ScreenQualitySettings } from '@quorum/shared';
 import { useChannelVoice } from '@/voice/channel-store';
 import { useChannelVoiceOrchestrator } from '@/voice/channel-context';
 import { useAuth } from '@/auth/store';
+import { useVoicePrefs } from '@/voice/prefs';
 import { useGuildChannels, useGuilds } from '@/hooks/use-guild-data';
+import { ScreenSharePicker } from './ScreenSharePicker';
 import { cn } from '@/lib/utils';
 
 export function VoiceChannelBar(): JSX.Element | null {
@@ -104,14 +109,12 @@ export function VoiceChannelBar(): JSX.Element | null {
         >
           {cameraOn ? <Video size={16} /> : <VideoOff size={16} />}
         </BarButton>
-        <BarButton
-          title={screenOn ? 'Остановить трансляцию' : 'Транслировать экран'}
-          active={screenOn}
+        <ScreenShareSplitButton
+          screenOn={screenOn}
           disabled={disabled}
-          onClick={() => void orchestrator.toggleScreenShare()}
-        >
-          {screenOn ? <MonitorOff size={16} /> : <Monitor size={16} />}
-        </BarButton>
+          onToggle={() => void orchestrator.toggleScreenShare()}
+        />
+
         <BarButton
           title={muted ? 'Включить микрофон' : 'Выключить микрофон'}
           active={muted}
@@ -202,5 +205,146 @@ function BarButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Split-кнопка screen-share: основная часть тогглит трансляцию, узкий ▾-caret
+ * справа открывает popover-picker качества. Когда трансляция активна,
+ * popover показывает «Сохранить» (фаза C live-switch — отложено), иначе
+ * «Начать трансляцию» — стартует сразу с draft-настройками.
+ */
+function ScreenShareSplitButton({
+  screenOn,
+  disabled,
+  onToggle,
+}: {
+  screenOn: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const caretRef = useRef<HTMLButtonElement>(null);
+  const orchestrator = useChannelVoiceOrchestrator();
+  const updatePrefs = useVoicePrefs((s) => s.update);
+
+  const onConfirm = (next: ScreenQualitySettings): void => {
+    void updatePrefs({ screenShare: next }).then(() => {
+      // Если screen-share выключен — стартуем; если активен — просто сохраняем
+      // (фаза C live-switch не реализована, применится при следующем рестарте).
+      if (!screenOn) void orchestrator.toggleScreenShare();
+    });
+    setOpen(false);
+  };
+
+  return (
+    <div className="flex">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        title={screenOn ? 'Остановить трансляцию' : 'Транслировать экран'}
+        className={cn(
+          'flex h-8 flex-1 items-center justify-center rounded-l-md transition-colors disabled:opacity-50',
+          screenOn
+            ? 'bg-accent-primary text-white hover:bg-accent-hover'
+            : 'bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+        )}
+      >
+        {screenOn ? <Monitor size={16} /> : <Monitor size={16} />}
+      </button>
+      <button
+        ref={caretRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="Качество трансляции"
+        className={cn(
+          'flex h-8 w-4 items-center justify-center rounded-r-md border-l border-bg-deepest transition-colors',
+          screenOn
+            ? 'bg-accent-primary text-white hover:bg-accent-hover'
+            : 'bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+        )}
+      >
+        <ChevronUp size={11} strokeWidth={2.5} />
+      </button>
+      {open && (
+        <ScreenShareSplitPopover
+          anchorRef={caretRef}
+          mode={screenOn ? 'apply-when-restart' : 'pre-stream'}
+          onClose={() => setOpen(false)}
+          onConfirm={onConfirm}
+        />
+      )}
+    </div>
+  );
+}
+
+const POPOVER_W = 360;
+const POPOVER_GAP = 8;
+
+interface PopoverProps {
+  anchorRef: React.RefObject<HTMLElement>;
+  mode: 'pre-stream' | 'apply-when-restart';
+  onConfirm: (next: ScreenQualitySettings) => void;
+  onClose: () => void;
+}
+
+function ScreenShareSplitPopover({
+  anchorRef,
+  mode,
+  onConfirm,
+  onClose,
+}: PopoverProps): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const a = anchorRef.current;
+    if (!a) return;
+    const rect = a.getBoundingClientRect();
+    const vh = window.innerHeight;
+    // Позиция: над caret'ом, выровнено по правому краю caret'а.
+    const estH = 460;
+    let top = rect.top - estH - POPOVER_GAP;
+    if (top < 8) top = 8;
+    let left = rect.right - POPOVER_W;
+    if (left < 8) left = 8;
+    if (top + estH > vh - 8) top = vh - estH - 8;
+    setPos({ top, left });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent): void => {
+      if (ref.current?.contains(e.target as Node)) return;
+      if (anchorRef.current?.contains(e.target as Node)) return;
+      onClose();
+    };
+    const onEsc = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [onClose, anchorRef]);
+
+  if (!pos) return <></>;
+
+  return createPortal(
+    <div
+      ref={ref}
+      role="dialog"
+      style={{ top: pos.top, left: pos.left }}
+      className="fixed z-[70]"
+    >
+      <ScreenSharePicker
+        mode={mode}
+        onConfirm={onConfirm}
+        onCancel={onClose}
+      />
+    </div>,
+    document.body,
   );
 }
