@@ -10,6 +10,15 @@ import type { DbClient } from './db/client.js';
 import { TokenService } from './modules/auth/tokens.js';
 import { AuthService } from './modules/auth/service.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { GuildsService } from './modules/guilds/service.js';
+import { guildRoutes } from './modules/guilds/routes.js';
+import { MessagesService } from './modules/messages/service.js';
+import { messageRoutes } from './modules/messages/routes.js';
+import { ReactionsService } from './modules/reactions/service.js';
+import { reactionRoutes } from './modules/reactions/routes.js';
+import { ReadStatesService } from './modules/read-states/service.js';
+import { readStateRoutes } from './modules/read-states/routes.js';
+import { EventBus } from './realtime/event-bus.js';
 
 export interface BuildAppOptions {
   config: Config;
@@ -35,28 +44,51 @@ export async function buildApp({ config, db }: BuildAppOptions): Promise<Fastify
     trustProxy: !isDev,
   });
 
+  // ---- Сервисы и шины ----
   const tokens = new TokenService({ db, config });
   const authService = new AuthService({ db, tokens });
+  const guildsService = new GuildsService(db);
+  const messagesService = new MessagesService(db);
+  const reactionsService = new ReactionsService(db, messagesService);
+  const readStatesService = new ReadStatesService(db, messagesService);
+  const events = new EventBus();
 
+  // ---- Плагины ----
   await app.register(sensible);
   await app.register(cors, {
-    // В Tauri webview origin — `http://tauri.localhost` (Win/Linux) или `tauri://localhost` (mac).
-    // Для dev-веба добавляем `http://localhost:1420` (Vite). В проде ограничим явным списком через ENV.
     origin: isDev
       ? [/^http:\/\/(localhost|127\.0\.0\.1):\d+$/, 'http://tauri.localhost', 'tauri://localhost']
       : ['http://tauri.localhost', 'tauri://localhost'],
     credentials: false,
   });
   await app.register(errorHandlerPlugin);
-  await app.register(rateLimit, {
-    max: 300,
-    timeWindow: '1 minute',
-    skipOnError: true,
-  });
+  if (config.NODE_ENV !== 'test') {
+    await app.register(rateLimit, {
+      max: 300,
+      timeWindow: '1 minute',
+      skipOnError: true,
+    });
+  }
   await app.register(authContextPlugin, { tokens });
 
+  // ---- Роуты ----
   await app.register(healthRoutes);
   await app.register(authRoutes({ service: authService }));
+  await app.register(guildRoutes({ service: guildsService }));
+  await app.register(messageRoutes({ service: messagesService, events }));
+  await app.register(reactionRoutes({ service: reactionsService, events }));
+  await app.register(readStateRoutes({ service: readStatesService }));
+
+  // Прокидываем events наружу для тестов / WebSocket-плагина (зарегистрируем дальше).
+  app.decorate('events', events);
+  app.decorate('guildsService', guildsService);
 
   return app;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    events: EventBus;
+    guildsService: GuildsService;
+  }
 }

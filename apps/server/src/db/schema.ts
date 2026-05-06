@@ -1,9 +1,11 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+  bigint,
   index,
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -117,6 +119,113 @@ export const refreshTokens = pgTable(
   ],
 );
 
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    content: text('content').notNull(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- self-ref на messages
+    replyToMessageId: uuid('reply_to_message_id').references((): any => messages.id, {
+      onDelete: 'set null',
+    }),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('messages_channel_created_idx').on(t.channelId, t.createdAt.desc()),
+    index('messages_author_idx').on(t.authorId),
+  ],
+);
+
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /**
+     * NULL пока attachment не привязан к сообщению (между POST /attachments
+     * и POST /messages). После привязки — id сообщения, и при удалении
+     * сообщения attachment чистится cascade'ом.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forward-ref на messages
+    messageId: uuid('message_id').references((): any => messages.id, { onDelete: 'cascade' }),
+    /** Кто залил файл — нужен чтобы нельзя было «угнать» чужой uploaded attachment. */
+    uploaderId: uuid('uploader_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+    storagePath: text('storage_path').notNull(),
+    width: integer('width'),
+    height: integer('height'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('attachments_message_idx').on(t.messageId),
+    index('attachments_uploader_pending_idx').on(t.uploaderId, t.createdAt),
+  ],
+);
+
+export const reactions = pgTable(
+  'reactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: text('emoji').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('reactions_message_user_emoji_key').on(t.messageId, t.userId, t.emoji),
+    index('reactions_message_idx').on(t.messageId),
+  ],
+);
+
+export const mentions = pgTable(
+  'mentions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    mentionedUserId: uuid('mentioned_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('mentions_message_user_key').on(t.messageId, t.mentionedUserId),
+    index('mentions_user_idx').on(t.mentionedUserId),
+  ],
+);
+
+export const readStates = pgTable(
+  'read_states',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    lastReadMessageId: uuid('last_read_message_id').references(() => messages.id, {
+      onDelete: 'set null',
+    }),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.channelId] })],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   members: many(members),
   refreshTokens: many(refreshTokens),
@@ -134,8 +243,45 @@ export const membersRelations = relations(members, ({ one }) => ({
   user: one(users, { fields: [members.userId], references: [users.id] }),
 }));
 
-export const channelsRelations = relations(channels, ({ one }) => ({
+export const channelsRelations = relations(channels, ({ one, many }) => ({
   guild: one(guilds, { fields: [channels.guildId], references: [guilds.id] }),
+  messages: many(messages),
+}));
+
+export const messagesRelations = relations(messages, ({ one, many }) => ({
+  channel: one(channels, { fields: [messages.channelId], references: [channels.id] }),
+  author: one(users, { fields: [messages.authorId], references: [users.id] }),
+  replyTo: one(messages, {
+    fields: [messages.replyToMessageId],
+    references: [messages.id],
+    relationName: 'replyTo',
+  }),
+  attachments: many(attachments),
+  reactions: many(reactions),
+  mentions: many(mentions),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  message: one(messages, { fields: [attachments.messageId], references: [messages.id] }),
+}));
+
+export const reactionsRelations = relations(reactions, ({ one }) => ({
+  message: one(messages, { fields: [reactions.messageId], references: [messages.id] }),
+  user: one(users, { fields: [reactions.userId], references: [users.id] }),
+}));
+
+export const mentionsRelations = relations(mentions, ({ one }) => ({
+  message: one(messages, { fields: [mentions.messageId], references: [messages.id] }),
+  user: one(users, { fields: [mentions.mentionedUserId], references: [users.id] }),
+}));
+
+export const readStatesRelations = relations(readStates, ({ one }) => ({
+  user: one(users, { fields: [readStates.userId], references: [users.id] }),
+  channel: one(channels, { fields: [readStates.channelId], references: [channels.id] }),
+  lastMessage: one(messages, {
+    fields: [readStates.lastReadMessageId],
+    references: [messages.id],
+  }),
 }));
 
 export const invitesRelations = relations(invites, ({ one }) => ({
@@ -154,3 +300,9 @@ export type Member = typeof members.$inferSelect;
 export type Channel = typeof channels.$inferSelect;
 export type Invite = typeof invites.$inferSelect;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
+export type Attachment = typeof attachments.$inferSelect;
+export type Reaction = typeof reactions.$inferSelect;
+export type Mention = typeof mentions.$inferSelect;
+export type ReadState = typeof readStates.$inferSelect;

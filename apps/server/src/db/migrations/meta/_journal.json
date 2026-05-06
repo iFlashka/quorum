@@ -8,6 +8,13 @@
       "when": 1778072148805,
       "tag": "0000_phase1_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778076147335,
+      "tag": "0001_phase2_messaging",
+      "breakpoints": true
     }
   ]
 }

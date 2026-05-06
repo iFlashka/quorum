@@ -13,7 +13,7 @@ describe('GET /health', () => {
     const config = loadConfig({
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
-      DATABASE_URL: 'postgres://test:test@localhost:5432/test',
+      DATABASE_URL: testDb.url,
       REDIS_URL: 'redis://localhost:6379',
       JWT_ACCESS_SECRET: 'a'.repeat(48),
       JWT_REFRESH_SECRET: 'b'.repeat(48),
@@ -22,7 +22,7 @@ describe('GET /health', () => {
     });
     app = await buildApp({ config, db: testDb.db });
     await app.ready();
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();

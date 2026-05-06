@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any */
-// Тесты скипнуты до конца фазы 1 — типы dial-in допилим вместе с фиксом PGlite.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -11,13 +10,12 @@ import { guilds, invites, users } from '../src/db/schema.js';
 const TEST_INVITE = 'TESTCODE';
 const TEST_GUILD = 'Test Guild';
 
-function buildTestEnv(): NodeJS.ProcessEnv {
+function buildTestEnv(databaseUrl: string): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'test',
     HOST: '127.0.0.1',
     LOG_LEVEL: 'silent',
-    // PGlite — DATABASE_URL валидируется как URL, но не используется фактически (мы передаём db напрямую).
-    DATABASE_URL: 'postgres://test:test@localhost:5432/test',
+    DATABASE_URL: databaseUrl,
     REDIS_URL: 'redis://localhost:6379',
     JWT_ACCESS_SECRET: 'a'.repeat(48),
     JWT_REFRESH_SECRET: 'b'.repeat(48),
@@ -26,20 +24,17 @@ function buildTestEnv(): NodeJS.ProcessEnv {
   };
 }
 
-// TODO(phase 1 finish): разобраться с timeout на beforeEach в PGlite — то ли argon2id
-// слишком долгий в этой среде, то ли transactions в WASM postgres ведут себя иначе.
-// Пока скипаем — auth-флоу гоним в реальном postgres через `pnpm infra:up && pnpm db:migrate && pnpm db:seed`.
-describe.skip('auth', () => {
+describe('auth', () => {
   let testDb: TestDb;
   let app: FastifyInstance;
   let config: Config;
 
   beforeAll(async () => {
     testDb = await createTestDb();
-    config = loadConfig(buildTestEnv());
+    config = loadConfig(buildTestEnv(testDb.url));
     app = await buildApp({ config, db: testDb.db });
     await app.ready();
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();
@@ -156,7 +151,7 @@ describe.skip('auth', () => {
     const bad = await app.inject({
       method: 'POST',
       url: '/auth/login',
-      payload: { username: 'bob', password: 'wrong' },
+      payload: { username: 'bob', password: 'wrongpass1' },
     });
     expect(bad.statusCode).toBe(401);
     expect((bad.json()).code).toBe('invalid_credentials');
