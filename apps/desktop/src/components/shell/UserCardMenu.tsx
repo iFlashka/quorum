@@ -1,17 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, RefreshCw, Settings } from 'lucide-react';
+import { Bell, BellOff, Check, LogOut, Power, RefreshCw, Settings } from 'lucide-react';
 import { useRuntime } from '@/auth/runtime-store';
+import { useNotificationPrefs } from '@/state/notification-prefs';
+import { useAutostart } from '@/lib/autostart';
 import { cn } from '@/lib/utils';
 
 /**
- * Кнопка-шестерёнка в нижней user-card с dropdown «Выйти / Сменить сервер».
- * Phase 7 расширим: настройки, профиль, статус, audio device picker.
+ * Кнопка-шестерёнка в нижней user-card с dropdown:
+ *   - Уведомления (mute toggle)
+ *   - Запускать с системой (autostart toggle)
+ *   - Сменить сервер
+ *   - Выйти
+ *
+ * Полноценный Settings-screen появится в фазе 7; здесь — самый частый минимум.
  */
 export function UserCardMenu(): JSX.Element {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const logout = useRuntime((s) => s.logout);
   const switchServer = useRuntime((s) => s.switchServer);
+
+  const muted = useNotificationPrefs((s) => s.muted);
+  const setMuted = useNotificationPrefs((s) => s.setMuted);
+
+  const autostartEnabled = useAutostart((s) => s.enabled);
+  const autostartReady = useAutostart((s) => s.ready);
+  const toggleAutostart = useAutostart((s) => s.toggle);
 
   useEffect(() => {
     if (!open) return;
@@ -46,8 +60,25 @@ export function UserCardMenu(): JSX.Element {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 bottom-full z-50 mb-2 min-w-[200px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
+          className="absolute right-0 bottom-full z-50 mb-2 min-w-[220px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
         >
+          <ToggleItem
+            icon={muted ? <BellOff size={16} strokeWidth={1.75} /> : <Bell size={16} strokeWidth={1.75} />}
+            checked={!muted}
+            onClick={() => void setMuted(!muted)}
+          >
+            Уведомления
+          </ToggleItem>
+          {autostartReady && (
+            <ToggleItem
+              icon={<Power size={16} strokeWidth={1.75} />}
+              checked={autostartEnabled}
+              onClick={() => void toggleAutostart()}
+            >
+              Запускать с системой
+            </ToggleItem>
+          )}
+          <Divider />
           <MenuItem
             icon={<RefreshCw size={16} strokeWidth={1.75} />}
             onClick={() => {
@@ -97,4 +128,40 @@ function MenuItem({ icon, danger, onClick, children }: MenuItemProps): JSX.Eleme
       <span className="truncate">{children}</span>
     </button>
   );
+}
+
+interface ToggleItemProps {
+  icon: React.ReactNode;
+  checked: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function ToggleItem({ icon, checked, onClick, children }: ToggleItemProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[14px] text-text-secondary transition-colors hover:bg-accent-primary hover:text-white"
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 truncate">{children}</span>
+      <span
+        className={cn(
+          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+          checked
+            ? 'border-accent-primary bg-accent-primary text-white'
+            : 'border-text-muted/40 bg-transparent',
+        )}
+      >
+        {checked && <Check size={12} strokeWidth={2.5} />}
+      </span>
+    </button>
+  );
+}
+
+function Divider(): JSX.Element {
+  return <div className="my-1 h-px bg-text-muted/15" />;
 }

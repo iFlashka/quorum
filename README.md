@@ -6,9 +6,19 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 
 ## Текущий статус
 
-**Фаза 0 — Bootstrap.** Скелет монорепы, статичный three-column shell, инфра в docker-compose, заготовки. Готовится к подтверждению.
+**Фазы 0–3 закрыты.** Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна.
 
 См. полный план фаз в [PROJECT.md](PROJECT.md#план-работы--фазы).
+
+### Поведение desktop-клиента
+
+- Закрытие окна (X) сворачивает в трей. Полный выход — пункт «Выйти» в tray-меню.
+- Клик по tray-иконке открывает / фокусирует окно.
+- `Без уведомлений` toggle есть и в tray-меню, и в dropdown-меню юзера — оба зеркалятся.
+- При @mention, если окно не сфокусировано и mute не стоит, прилетает native Windows toast.
+- Бейдж непрочитанных: красная точка на tray-иконке + `Quorum • N` в заголовке (видно в taskbar).
+- Положение/размер окна сохраняется между запусками.
+- `Запускать с системой` → бинарь стартует с `--minimized`, идёт сразу в трей.
 
 ## Требования к окружению
 

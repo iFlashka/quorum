@@ -28,12 +28,21 @@ interface InfinitePages {
   pages: ListMessagesResponse[];
 }
 
+export interface RealtimeBridgeOptions {
+  /**
+   * Вызывается на каждое входящее `message.create`. Решение «уведомлять/нет»
+   * принимает caller (App.tsx) — он знает meId, lookup имени канала и т.п.
+   */
+  onMessageCreate?: (message: PublicMessage) => void;
+}
+
 export function attachRealtimeBridge(
   ws: WebSocketManager,
   queryClient: QueryClient,
+  options: RealtimeBridgeOptions = {},
 ): () => void {
   const off = ws.subscribe((event) => {
-    handleEvent(event, queryClient);
+    handleEvent(event, queryClient, options);
   });
   // Чистим typing-state каждую секунду, чтобы expired-entries не залипали в UI.
   const pruneInterval = setInterval(() => {
@@ -45,7 +54,11 @@ export function attachRealtimeBridge(
   };
 }
 
-function handleEvent(event: ServerEvent, qc: QueryClient): void {
+function handleEvent(
+  event: ServerEvent,
+  qc: QueryClient,
+  options: RealtimeBridgeOptions,
+): void {
   switch (event.t) {
     case 'ready':
       useRealtime.getState().setManyPresence(event.presence);
@@ -64,6 +77,7 @@ function handleEvent(event: ServerEvent, qc: QueryClient): void {
         upsertMessageAtTail(data, event.message),
       );
       useRealtime.getState().noteIncoming(event.message.channelId, event.message.id);
+      options.onMessageCreate?.(event.message);
       return;
 
     case 'message.update':
@@ -95,6 +109,22 @@ function handleEvent(event: ServerEvent, qc: QueryClient): void {
     case 'error':
       return;
   }
+}
+
+/** Поиск имени канала по id в кеше TanStack Query (`['channels', guildId]`). */
+export function findChannelName(qc: QueryClient, channelId: string): string | null {
+  const entries = qc.getQueryCache().findAll({ queryKey: ['channels'] });
+  for (const entry of entries) {
+    const data = entry.state.data as ListChannelsCache | undefined;
+    if (!data || !Array.isArray(data.channels)) continue;
+    const found = data.channels.find((c) => c.id === channelId);
+    if (found) return found.name;
+  }
+  return null;
+}
+
+interface ListChannelsCache {
+  channels: { id: string; name: string }[];
 }
 
 function patchMessages(

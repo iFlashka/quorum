@@ -5,7 +5,7 @@ import type {
   PublicMessage,
   ServerEvent,
 } from '@quorum/shared';
-import { attachRealtimeBridge } from './realtime-bridge';
+import { attachRealtimeBridge, findChannelName } from './realtime-bridge';
 import type { WebSocketManager } from './WebSocketManager';
 import { useRealtime } from './store';
 
@@ -220,5 +220,36 @@ describe('attachRealtimeBridge', () => {
     expect(() =>
       emit({ t: 'error', code: 'foo', message: 'bar' }),
     ).not.toThrow();
+  });
+
+  it('onMessageCreate hook вызывается с PublicMessage', () => {
+    const { ws, emit } = makeFakeWs();
+    const onMessageCreate = vi.fn();
+    detach = attachRealtimeBridge(ws, qc, { onMessageCreate });
+
+    const msg = makeMessage({ id: 'm-9', channelId: 'ch-1' });
+    emit({ t: 'message.create', message: msg });
+
+    expect(onMessageCreate).toHaveBeenCalledTimes(1);
+    expect(onMessageCreate.mock.calls[0]![0]).toBe(msg);
+  });
+});
+
+describe('findChannelName', () => {
+  it('находит имя канала по id обходя все ["channels", *] cache-entries', () => {
+    const qc = new QueryClient();
+    qc.setQueryData(['channels', 'g-1'], {
+      channels: [
+        { id: 'ch-1', name: 'general' },
+        { id: 'ch-2', name: 'random' },
+      ],
+    });
+    qc.setQueryData(['channels', 'g-2'], {
+      channels: [{ id: 'ch-3', name: 'lounge' }],
+    });
+
+    expect(findChannelName(qc, 'ch-2')).toBe('random');
+    expect(findChannelName(qc, 'ch-3')).toBe('lounge');
+    expect(findChannelName(qc, 'ch-missing')).toBeNull();
   });
 });

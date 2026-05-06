@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useRealtime } from './store';
+import { countUnreadChannels, useRealtime } from './store';
 
 function reset(): void {
   useRealtime.setState({
@@ -56,5 +56,19 @@ describe('useRealtime store', () => {
     markRead('ch-1', 'msg-1');
     s = useRealtime.getState();
     expect(s.lastReadByChannel.get('ch-1')).toBe('msg-1');
+  });
+
+  it('countUnreadChannels — каналы где seen ≠ read', () => {
+    const seen = new Map([
+      ['ch-1', 'm-10'],
+      ['ch-2', 'm-20'],
+      ['ch-3', 'm-30'],
+    ]);
+    const read = new Map([
+      ['ch-1', 'm-10'], // прочитан
+      ['ch-2', 'm-15'], // отстаёт → unread
+      // ch-3 → отсутствует в read → unread
+    ]);
+    expect(countUnreadChannels(seen, read)).toBe(2);
   });
 });

@@ -9,7 +9,13 @@ import { loadServerConfig } from '@/lib/server-config';
 import { createAppRuntime } from '@/auth/runtime';
 import { useRuntime } from '@/auth/runtime-store';
 import { useAuth } from '@/auth/store';
-import { attachRealtimeBridge } from '@/realtime/realtime-bridge';
+import { attachRealtimeBridge, findChannelName } from '@/realtime/realtime-bridge';
+import { useUnreadChannelsCount } from '@/realtime/store';
+import { applyBadge } from '@/lib/badge';
+import { maybeNotifyMention } from '@/lib/notifications';
+import { initNotificationPrefs } from '@/state/notification-prefs';
+import { useAutostart } from '@/lib/autostart';
+import { Splash } from '@/components/Splash';
 
 type Stage = 'bootstrapping' | 'onboarding' | 'login' | 'register' | 'authed';
 
@@ -46,7 +52,13 @@ function AppInner(): JSX.Element {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
 
+    let unlistenMute: (() => void) | undefined;
     void (async (): Promise<void> => {
+      // Native-окружение Tauri: восстанавливаем mute-prefs, читаем autostart-state.
+      // Каждое — best-effort: если упадёт (web-режим, нет плагина) — игнор.
+      unlistenMute = await initNotificationPrefs().catch(() => undefined);
+      void useAutostart.getState().refresh();
+
       const cfg = await loadServerConfig().catch(() => null);
       if (!cfg) {
         setStage('onboarding');
@@ -56,6 +68,10 @@ function AppInner(): JSX.Element {
       setRuntime(rt);
       await rt.session.bootstrap();
     })();
+
+    return () => {
+      unlistenMute?.();
+    };
   }, [setRuntime]);
 
   // Перевод стадии вслед за auth-статусом и наличием runtime.
@@ -87,9 +103,7 @@ function AppInner(): JSX.Element {
     return (
       <div className="flex h-screen flex-col bg-bg-default text-text-primary">
         <CustomTitlebar />
-        <div className="flex flex-1 items-center justify-center text-text-muted">
-          <span className="text-[14px]">Подключаемся…</span>
-        </div>
+        <Splash />
       </div>
     );
   }
@@ -142,14 +156,36 @@ function AppInner(): JSX.Element {
 
 /**
  * Привязывает realtime-bridge к QueryClient — `useQueryClient` доступен только
- * внутри `QueryClientProvider`, поэтому отдельный компонент.
+ * внутри `QueryClientProvider`, поэтому отдельный компонент. Здесь же:
+ *   - bridge'у выдаётся mention-notifier с lookup имени канала из cache,
+ *   - подписка на unread-счётчик зеркалит его в tray-иконку и заголовок окна.
  */
 function AppScreenWithBridge(): JSX.Element {
   const runtime = useRuntime((s) => s.runtime);
   const queryClient = useQueryClient();
+  const meId = useAuth((s) => s.user?.id);
+  const unreadCount = useUnreadChannelsCount();
+
   useEffect(() => {
-    if (!runtime) return;
-    return attachRealtimeBridge(runtime.ws, queryClient);
-  }, [runtime, queryClient]);
+    if (!runtime || !meId) return;
+    return attachRealtimeBridge(runtime.ws, queryClient, {
+      onMessageCreate: (message) => {
+        const channelName = findChannelName(queryClient, message.channelId) ?? 'channel';
+        void maybeNotifyMention(
+          {
+            message,
+            channelName,
+            authorDisplayName: message.author.displayName || message.author.username,
+          },
+          meId,
+        );
+      },
+    });
+  }, [runtime, queryClient, meId]);
+
+  useEffect(() => {
+    void applyBadge(unreadCount);
+  }, [unreadCount]);
+
   return <AppScreen />;
 }

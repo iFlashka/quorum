@@ -138,3 +138,19 @@ export function useChannelHasUnread(channelId: string): boolean {
     return s.lastReadByChannel.get(channelId) !== seen;
   });
 }
+
+/** Кол-во каналов с unread — для бейджа в tray и titlebar. */
+export function useUnreadChannelsCount(): number {
+  return useRealtime((s) => countUnreadChannels(s.lastSeenByChannel, s.lastReadByChannel));
+}
+
+export function countUnreadChannels(
+  lastSeen: ReadonlyMap<string, string>,
+  lastRead: ReadonlyMap<string, string>,
+): number {
+  let count = 0;
+  for (const [channelId, seen] of lastSeen) {
+    if (lastRead.get(channelId) !== seen) count += 1;
+  }
+  return count;
+}
