@@ -1,0 +1,70 @@
+name: Release
+
+# Triggers only on version tags v*.*.*. Runs Tauri build на Windows-runner'е,
+# подписывает .msi приватным ключом из GitHub Secrets, публикует в GitHub Release
+# вместе с latest.json — auto-update endpoint клиентов.
+#
+# Перед первым релизом убедись:
+# - secret TAURI_SIGNING_PRIVATE_KEY содержит содержимое .tauri-keys/quorum-updater.key
+# - в apps/desktop/src-tauri/tauri.conf.json::plugins.updater.endpoints
+#   подставлен реальный owner/repo
+# - версия в apps/desktop/package.json и tauri.conf.json совпадает с тегом
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release-desktop:
+    name: Build Windows .msi и опубликовать
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./apps/desktop/package.json').version")
+          CONF_VERSION=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          echo "Tag:  $TAG_VERSION"
+          echo "pkg:  $PKG_VERSION"
+          echo "conf: $CONF_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$CONF_VERSION" ]; then
+            echo "::error::Тег v$TAG_VERSION не совпадает с версией в package.json ($PKG_VERSION) или tauri.conf.json ($CONF_VERSION)"
+            exit 1
+          fi
+
+      - name: Build Tauri и публикация в Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Quorum ${{ github.ref_name }}'
+          releaseBody: |
+            Установщик: загрузите `.msi` ниже и запустите.
+
+            Для уже установленных клиентов обновление прилетит автоматически
+            при следующем запуске или в течение часа.
+          releaseDraft: false
+          prerelease: false
+          # tauri-action сам сгенерирует latest.json для plugin-updater
+          # (включает signature и URLs к артефактам).
+          includeUpdaterJson: true

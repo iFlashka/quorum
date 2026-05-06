@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PNPM_VERSION: '10'
+  NODE_VERSION: '20'
+
+jobs:
+  versions:
+    name: Version sync check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify package.json и tauri.conf.json совпадают
+        run: |
+          PKG_VERSION=$(node -p "require('./apps/desktop/package.json').version")
+          CONF_VERSION=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          echo "package.json:    $PKG_VERSION"
+          echo "tauri.conf.json: $CONF_VERSION"
+          if [ "$PKG_VERSION" != "$CONF_VERSION" ]; then
+            echo "::error::Версии не совпадают — обнови оба файла"
+            exit 1
+          fi
+
+  lint-and-typecheck:
+    name: Lint + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  test-server:
+    name: Server tests (postgres + redis testcontainers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Run server tests
+        run: pnpm --filter @quorum/server test
+        # testcontainers сам поднимает postgres + redis в Docker,
+        # на ubuntu-runner Docker уже установлен.
+        env:
+          # Reaper не нужен — мы уже отключали его на Windows, но и в CI без него быстрее.
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
+
+  test-desktop:
+    name: Desktop tests (vitest + jsdom)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @quorum/desktop test
+
+  build-server:
+    name: Build server (tsup)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:server
