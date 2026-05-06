@@ -42,12 +42,60 @@ export const ClientPresenceSetSchema = z.object({
   status: UserStatusSchema.exclude(['offline']),
 });
 
+// ---------- Call signaling: client → server ----------
+
+export const ClientCallInviteSchema = z.object({
+  t: z.literal('call.invite'),
+  toUserId: z.string().uuid(),
+});
+export const ClientCallAcceptSchema = z.object({
+  t: z.literal('call.accept'),
+  callId: z.string().uuid(),
+});
+export const ClientCallDeclineSchema = z.object({
+  t: z.literal('call.decline'),
+  callId: z.string().uuid(),
+  reason: z.enum(['busy', 'rejected']).optional(),
+});
+export const ClientCallCancelSchema = z.object({
+  t: z.literal('call.cancel'),
+  callId: z.string().uuid(),
+});
+export const ClientCallHangupSchema = z.object({
+  t: z.literal('call.hangup'),
+  callId: z.string().uuid(),
+});
+export const ClientCallOfferSchema = z.object({
+  t: z.literal('call.offer'),
+  callId: z.string().uuid(),
+  sdp: z.string().min(1),
+});
+export const ClientCallAnswerSchema = z.object({
+  t: z.literal('call.answer'),
+  callId: z.string().uuid(),
+  sdp: z.string().min(1),
+});
+export const ClientCallIceSchema = z.object({
+  t: z.literal('call.ice'),
+  callId: z.string().uuid(),
+  /** RTCIceCandidateInit JSON-сериализованный. */
+  candidate: z.string(),
+});
+
 export const ClientEventSchema = z.discriminatedUnion('t', [
   ClientHelloSchema,
   ClientPingSchema,
   ClientTypingStartSchema,
   ClientTypingStopSchema,
   ClientPresenceSetSchema,
+  ClientCallInviteSchema,
+  ClientCallAcceptSchema,
+  ClientCallDeclineSchema,
+  ClientCallCancelSchema,
+  ClientCallHangupSchema,
+  ClientCallOfferSchema,
+  ClientCallAnswerSchema,
+  ClientCallIceSchema,
 ]);
 export type ClientEvent = z.infer<typeof ClientEventSchema>;
 
@@ -122,6 +170,46 @@ export const ServerErrorSchema = z.object({
   message: z.string(),
 });
 
+// ---------- Call signaling: server → client ----------
+
+export const ServerCallRingingSchema = z.object({
+  t: z.literal('call.ringing'),
+  callId: z.string().uuid(),
+  fromUserId: z.string().uuid(),
+});
+export const ServerCallAcceptedSchema = z.object({
+  t: z.literal('call.accepted'),
+  callId: z.string().uuid(),
+});
+export const ServerCallDeclinedSchema = z.object({
+  t: z.literal('call.declined'),
+  callId: z.string().uuid(),
+  reason: z.enum(['busy', 'rejected', 'unreachable', 'timeout']),
+});
+export const ServerCallCancelledSchema = z.object({
+  t: z.literal('call.cancelled'),
+  callId: z.string().uuid(),
+});
+export const ServerCallEndedSchema = z.object({
+  t: z.literal('call.ended'),
+  callId: z.string().uuid(),
+});
+export const ServerCallOfferSchema = z.object({
+  t: z.literal('call.offer'),
+  callId: z.string().uuid(),
+  sdp: z.string(),
+});
+export const ServerCallAnswerSchema = z.object({
+  t: z.literal('call.answer'),
+  callId: z.string().uuid(),
+  sdp: z.string(),
+});
+export const ServerCallIceSchema = z.object({
+  t: z.literal('call.ice'),
+  callId: z.string().uuid(),
+  candidate: z.string(),
+});
+
 export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerReadySchema,
   ServerAuthFailedSchema,
@@ -133,6 +221,14 @@ export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerReactionRemoveSchema,
   ServerTypingSchema,
   ServerPresenceUpdateSchema,
+  ServerCallRingingSchema,
+  ServerCallAcceptedSchema,
+  ServerCallDeclinedSchema,
+  ServerCallCancelledSchema,
+  ServerCallEndedSchema,
+  ServerCallOfferSchema,
+  ServerCallAnswerSchema,
+  ServerCallIceSchema,
   ServerErrorSchema,
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;

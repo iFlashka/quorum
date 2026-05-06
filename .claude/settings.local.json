@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C e:/quorum status --short)",
+      "Bash(git -C e:/quorum log --oneline -10)"
+    ]
+  }
+}

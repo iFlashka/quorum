@@ -23,6 +23,7 @@ import type { GuildsService } from '../modules/guilds/service.js';
 import type { EventBus } from './event-bus.js';
 import type { DbClient } from '../db/client.js';
 import type { PresenceService } from '../modules/presence/service.js';
+import type { CallsService } from '../modules/calls/service.js';
 import { eq } from 'drizzle-orm';
 import { users } from '../db/schema.js';
 import { randomUUID } from 'node:crypto';
@@ -42,10 +43,11 @@ interface WsPluginOptions {
   events: EventBus;
   db: DbClient;
   presence: PresenceService;
+  calls: CallsService;
 }
 
 export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
-  const { tokens, guilds, events, db, presence } = opts;
+  const { tokens, guilds, events, db, presence, calls } = opts;
 
   await app.register(websocket);
 
@@ -130,6 +132,30 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
             });
           }
           break;
+        case 'call.invite':
+          void calls.invite(authenticatedUserId, event.toUserId);
+          break;
+        case 'call.accept':
+          calls.accept(authenticatedUserId, event.callId);
+          break;
+        case 'call.decline':
+          calls.decline(authenticatedUserId, event.callId, event.reason ?? 'rejected');
+          break;
+        case 'call.cancel':
+          calls.cancel(authenticatedUserId, event.callId);
+          break;
+        case 'call.hangup':
+          calls.hangup(authenticatedUserId, event.callId);
+          break;
+        case 'call.offer':
+          calls.forwardOffer(authenticatedUserId, event.callId, event.sdp);
+          break;
+        case 'call.answer':
+          calls.forwardAnswer(authenticatedUserId, event.callId, event.sdp);
+          break;
+        case 'call.ice':
+          calls.forwardIce(authenticatedUserId, event.callId, event.candidate);
+          break;
         case 'hello':
           // Уже аутентифицирован — игнорируем повторный hello.
           sendError(socket, 'already_authenticated', 'hello уже принят');
@@ -149,6 +175,9 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
         presence.disconnect(userId, sessionId).catch((err: unknown) => {
           app.log.warn({ err, userId }, 'presence.disconnect failed');
         });
+        // Если у юзера был активный звонок — отбиваем его сразу, не ждём
+        // peer-side timeout по WebRTC ICE.
+        calls.onUserDisconnected(userId);
       }
     });
 

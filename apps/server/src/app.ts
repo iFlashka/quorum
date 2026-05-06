@@ -29,6 +29,9 @@ import { createRedisClients, type RedisClients } from './plugins/redis.js';
 import { PresenceStore } from './modules/presence/store.js';
 import { PresencePubsub } from './modules/presence/pubsub.js';
 import { PresenceService } from './modules/presence/service.js';
+import { CallsService } from './modules/calls/service.js';
+import { TurnService } from './modules/turn/service.js';
+import { turnRoutes } from './modules/turn/routes.js';
 import { randomUUID } from 'node:crypto';
 
 export interface BuildAppOptions {
@@ -79,6 +82,13 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   });
   await presenceService.start();
 
+  const callsService = new CallsService(db, events);
+  const turnService = new TurnService({
+    sharedSecret: config.TURN_SHARED_SECRET,
+    urls: config.TURN_PUBLIC_URLS.split(',').map((u) => u.trim()).filter(Boolean),
+    ttlSeconds: config.TURN_TTL_SECONDS,
+  });
+
   // ---- Плагины ----
   await app.register(sensible);
   await app.register(cors, {
@@ -111,6 +121,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   await app.register(reactionRoutes({ service: reactionsService, events }));
   await app.register(readStateRoutes({ service: readStatesService }));
   await app.register(attachmentRoutes({ service: attachmentsService }));
+  await app.register(turnRoutes({ service: turnService }));
 
   // ---- WebSocket ----
   await app.register(wsPlugin, {
@@ -119,14 +130,18 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
     events,
     db,
     presence: presenceService,
+    calls: callsService,
   });
 
   // Прокидываем events наружу для тестов.
   app.decorate('events', events);
   app.decorate('guildsService', guildsService);
   app.decorate('presenceService', presenceService);
+  app.decorate('callsService', callsService);
+  app.decorate('turnService', turnService);
 
   app.addHook('onClose', async () => {
+    callsService.shutdown();
     await presenceService.stop();
     // Если клиенты подсунули снаружи — пусть их и закрывают (тесты).
     if (!redis) await redisClients.close();
@@ -140,5 +155,7 @@ declare module 'fastify' {
     events: EventBus;
     guildsService: GuildsService;
     presenceService: PresenceService;
+    callsService: CallsService;
+    turnService: TurnService;
   }
 }
