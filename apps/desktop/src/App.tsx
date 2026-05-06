@@ -24,6 +24,8 @@ import { CallOverlay } from '@/components/voice/CallOverlay';
 import { VoiceOrchestratorContext } from '@/voice/context';
 import { ChannelVoiceContext } from '@/voice/channel-context';
 import { useVoicePrefs } from '@/voice/prefs';
+import { useSoundPrefs } from '@/state/sound-prefs';
+import { soundManager } from '@/audio/sounds';
 import { checkForUpdate } from '@/lib/updater';
 import { useUpdater } from '@/state/updater-store';
 import { UpdaterToast } from '@/components/UpdaterToast';
@@ -84,6 +86,8 @@ function AppInner(): JSX.Element {
       unlistenMute = await initNotificationPrefs().catch(() => undefined);
       void useAutostart.getState().refresh();
       void useVoicePrefs.getState().hydrate();
+      void useSoundPrefs.getState().hydrate();
+      soundManager.preload();
       void runUpdateCheck();
 
       const cfg = await loadServerConfig().catch(() => null);
