@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Bell, Info, Mic, User, X } from 'lucide-react';
+import { Bell, Info, Mic, Pencil, User, X } from 'lucide-react';
+import { useAuth } from '@/auth/store';
 import { useSettings, type SettingsSection } from '@/state/settings-store';
 import { AccountSection } from './AccountSection';
 import { VoiceSection } from './VoiceSection';
@@ -39,8 +40,9 @@ export function SettingsModal(): JSX.Element | null {
 
   return (
     <div className="fixed inset-0 z-[80] flex bg-bg-default text-text-primary">
-      <aside className="flex w-[240px] shrink-0 flex-col border-r border-bg-darker bg-bg-darker px-2 pt-12">
-        <h2 className="mb-2 px-2 text-[11px] font-semibold tracking-wide text-text-muted uppercase">
+      <aside className="flex w-[240px] shrink-0 flex-col border-r border-bg-darker bg-bg-darker px-2 pt-10">
+        <ProfileCard onClick={() => setSection('account')} />
+        <h2 className="mt-3 mb-2 px-2 text-[11px] font-semibold tracking-wide text-text-muted uppercase">
           Настройки
         </h2>
         <nav className="flex-1 space-y-0.5">
@@ -87,4 +89,43 @@ export function SettingsModal(): JSX.Element | null {
       </main>
     </div>
   );
+}
+
+/**
+ * Discord-style мини-card в верху Settings sidebar: avatar + displayName +
+ * «Редактировать профиль». Клик переключает section на account.
+ */
+function ProfileCard({ onClick }: { onClick: () => void }): JSX.Element {
+  const user = useAuth((s) => s.user);
+  const displayName = user?.displayName ?? user?.username ?? 'You';
+  const initials = avatarInitials(displayName);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-2 rounded-md bg-bg-default/40 px-2 py-2 text-left transition-colors hover:bg-bg-default/70"
+      title="Редактировать профиль"
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[14px] font-semibold text-white">
+        {initials}
+      </div>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="truncate text-[14px] font-semibold text-text-primary">
+          {displayName}
+        </div>
+        <div className="flex items-center gap-1 text-[11px] text-text-muted group-hover:text-text-secondary">
+          <Pencil size={10} strokeWidth={2} />
+          <span>Редактировать профиль</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function avatarInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '?';
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
 }
