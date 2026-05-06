@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/store';
 import { useDeleteMessage, useEditMessage, useToggleReaction } from '@/hooks/use-messages';
 import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
+import { MemberAvatar } from '@/components/shell/MemberAvatar';
 import { AttachmentTile } from './AttachmentTile';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -63,9 +64,17 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
           {formatTimestamp(message.createdAt)}
         </div>
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[15px] font-semibold text-white">
-          {avatarInitials(message.author.displayName || message.author.username)}
-        </div>
+        <MemberAvatar
+          user={{
+            userId: message.author.id,
+            username: message.author.username,
+            displayName: message.author.displayName,
+          }}
+          member={userById.get(message.author.id)}
+          size={40}
+          ringColor="bg-default"
+          hideStatus
+        />
       )}
       <div className="min-w-0 flex-1">
         {!grouped && (
@@ -207,14 +216,6 @@ function ActionButton({ danger, className, children, ...rest }: ActionButtonProp
       {children}
     </button>
   );
-}
-
-function avatarInitials(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return '?';
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
-  return trimmed.slice(0, 2).toUpperCase();
 }
 
 function formatTimestamp(iso: string): string {

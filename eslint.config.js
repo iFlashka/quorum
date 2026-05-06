@@ -15,6 +15,7 @@ export default tseslint.config(
       '**/coverage/**',
       'apps/desktop/src-tauri/target/**',
       'apps/desktop/src-tauri/gen/**',
+      'scripts/**',
       'pnpm-lock.yaml',
     ],
   },

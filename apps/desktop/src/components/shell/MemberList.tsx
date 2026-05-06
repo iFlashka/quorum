@@ -1,19 +1,13 @@
 import { Phone } from 'lucide-react';
-import type { PublicMember, UserStatus } from '@quorum/shared';
+import type { PublicMember } from '@quorum/shared';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useRealtime } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
 import { useAuth } from '@/auth/store';
 import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
+import { MemberAvatar } from './MemberAvatar';
 import { cn } from '@/lib/utils';
-
-const STATUS_COLOR: Record<UserStatus, string> = {
-  online: 'bg-accent-success',
-  idle: 'bg-accent-warning',
-  dnd: 'bg-accent-danger',
-  offline: 'bg-text-muted',
-};
 
 const ROLE_LABEL = {
   owner: 'OWNER',
@@ -88,17 +82,17 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
         muted && 'opacity-50',
       )}
     >
-      <div className="relative shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-[13px] font-semibold text-white">
-          {avatarInitials(member.displayName || member.username)}
-        </div>
-        <span
-          className={cn(
-            'absolute -right-0.5 -bottom-0.5 h-[14px] w-[14px] rounded-full border-[2px] border-bg-darker',
-            STATUS_COLOR[member.status],
-          )}
-        />
-      </div>
+      <MemberAvatar
+        user={{
+          userId: member.userId,
+          username: member.username,
+          displayName: member.displayName,
+        }}
+        member={member}
+        size={32}
+        ringColor="bg-darker"
+        disablePopover={isMe}
+      />
       <span className="flex-1 truncate text-[15px] font-medium text-text-secondary">
         {member.nickname ?? member.displayName ?? member.username}
       </span>
@@ -115,12 +109,4 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
       )}
     </div>
   );
-}
-
-function avatarInitials(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return '?';
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
-  return trimmed.slice(0, 2).toUpperCase();
 }

@@ -6,6 +6,7 @@ import { useVoiceOccupancy } from '@/voice/occupancy-store';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useSelection } from '@/state/selection';
 import { useAuth } from '@/auth/store';
+import { MemberAvatar } from '@/components/shell/MemberAvatar';
 import { cn } from '@/lib/utils';
 
 interface VoiceChannelMembersProps {
@@ -15,9 +16,11 @@ interface VoiceChannelMembersProps {
 interface RowData {
   userId: string;
   name: string;
+  username: string;
   audioEnabled: boolean;
   speaking: boolean;
   isLocal: boolean;
+  member?: PublicMember;
 }
 
 /**
@@ -59,9 +62,11 @@ export function VoiceChannelMembers({ channelId }: VoiceChannelMembersProps): JS
         memberRow?.displayName ??
         memberRow?.username ??
         userId.slice(0, 6),
+      username: memberRow?.username ?? userId.slice(0, 6),
       audioEnabled: live?.audioEnabled ?? true,
       speaking: live?.speaking ?? false,
       isLocal: userId === meId,
+      member: memberRow,
     };
   });
 
@@ -74,11 +79,18 @@ export function VoiceChannelMembers({ channelId }: VoiceChannelMembersProps): JS
         >
           <span
             className={cn(
-              'relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[11px] font-semibold text-white',
+              'rounded-full transition-shadow',
               p.speaking && 'ring-2 ring-accent-success ring-offset-1 ring-offset-bg-darker',
             )}
           >
-            {avatarInitials(p.name)}
+            <MemberAvatar
+              user={{ userId: p.userId, username: p.username, displayName: p.name }}
+              member={p.member}
+              size={24}
+              ringColor="bg-darker"
+              disablePopover={p.isLocal}
+              hideStatus
+            />
           </span>
           <span className={cn('flex-1 truncate', p.isLocal && 'font-medium text-text-primary')}>
             {p.name}
@@ -93,11 +105,3 @@ export function VoiceChannelMembers({ channelId }: VoiceChannelMembersProps): JS
 }
 
 const EMPTY: string[] = [];
-
-function avatarInitials(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return '?';
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
-  return trimmed.slice(0, 2).toUpperCase();
-}
