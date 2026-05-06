@@ -15,6 +15,7 @@ import type {
   PublicAttachment,
   PublicMessage,
   PublicMessageAuthor,
+  PublicMessagePreview,
   PublicReaction,
   SendMessageRequest,
 } from '@quorum/shared';
@@ -248,7 +249,19 @@ export class MessagesService {
   ): Promise<PublicMessage[]> {
     if (rows.length === 0) return [];
     const ids = rows.map((r) => r.id);
-    const authorIds = Array.from(new Set(rows.map((r) => r.authorId)));
+    const authorIds = new Set(rows.map((r) => r.authorId));
+    const replyToIds = Array.from(
+      new Set(rows.map((r) => r.replyToMessageId).filter((v): v is string => !!v)),
+    );
+
+    // Reply-родители: нужны строки messages + их authors. Author-id'ы дополним
+    // в общий запрос `users`, чтобы не делать ещё один round-trip.
+    const replyRowsP =
+      replyToIds.length > 0
+        ? runner.select().from(messages).where(inArray(messages.id, replyToIds))
+        : Promise.resolve([] as Message[]);
+    const replyRows = await replyRowsP;
+    for (const r of replyRows) authorIds.add(r.authorId);
 
     const [authorRows, attRows, rxRows, mentionRows] = await Promise.all([
       runner
@@ -259,7 +272,7 @@ export class MessagesService {
           avatarUrl: users.avatarUrl,
         })
         .from(users)
-        .where(inArray(users.id, authorIds)),
+        .where(inArray(users.id, Array.from(authorIds))),
       runner
         .select()
         .from(attachments)
@@ -320,18 +333,45 @@ export class MessagesService {
       mentionsByMsg.set(m.messageId, arr);
     }
 
+    // Карта preview родительских сообщений по их id.
+    const replyPreviewById = new Map<string, PublicMessagePreview>();
+    for (const r of replyRows) {
+      const author = authorMap.get(r.authorId);
+      if (!author) continue;
+      replyPreviewById.set(r.id, {
+        id: r.id,
+        author,
+        contentPreview: makePreview(r.content),
+        deleted: false,
+      });
+    }
+
     return rows.map((row) => {
       const author = authorMap.get(row.authorId);
       if (!author) throw new Error(`author_not_found:${row.authorId}`);
       const reactionsForMsg = Array.from(reactionsByMsg.get(row.id)?.values() ?? []).sort(
         (a, b) => a.emoji.localeCompare(b.emoji),
       );
+      // Если row.replyToMessageId есть, но строка-родитель не нашлась — это
+      // удалённый message (FK SET NULL не задействован — реальный delete
+      // оставляет id ссылающимся на null-строку).
+      let replyToPreview: PublicMessagePreview | null = null;
+      if (row.replyToMessageId) {
+        replyToPreview =
+          replyPreviewById.get(row.replyToMessageId) ?? {
+            id: row.replyToMessageId,
+            author: { id: '', username: '', displayName: '', avatarUrl: null },
+            contentPreview: '',
+            deleted: true,
+          };
+      }
       return {
         id: row.id,
         channelId: row.channelId,
         author,
         content: row.content,
         replyToMessageId: row.replyToMessageId,
+        replyToPreview,
         mentionedUserIds: mentionsByMsg.get(row.id) ?? [],
         attachments: attachmentsByMsg.get(row.id) ?? [],
         reactions: reactionsForMsg,
@@ -340,6 +380,15 @@ export class MessagesService {
       };
     });
   }
+}
+
+const REPLY_PREVIEW_LIMIT = 80;
+function makePreview(content: string): string {
+  // Сворачиваем `<@uuid>` в `@…` чтобы UUID не торчали в превью; берём первую
+  // строку и обрезаем по REPLY_PREVIEW_LIMIT с многоточием.
+  const cleaned = content.replace(/<@[0-9a-f-]{36}>/gi, '@…').replace(/\n+/g, ' ').trim();
+  if (cleaned.length <= REPLY_PREVIEW_LIMIT) return cleaned;
+  return cleaned.slice(0, REPLY_PREVIEW_LIMIT - 1) + '…';
 }
 
 function extractMentionedUserIds(content: string): string[] {

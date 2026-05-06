@@ -45,6 +45,7 @@ function makeMessage(overrides: Partial<PublicMessage> = {}): PublicMessage {
     createdAt: new Date().toISOString(),
     editedAt: null,
     replyToMessageId: null,
+    replyToPreview: null,
     mentionedUserIds: [],
     attachments: [],
     reactions: [],
