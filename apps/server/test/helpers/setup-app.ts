@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
 import { loadConfig } from '../../src/config.js';
 import { createTestDb, type TestDb } from '../setup-db.js';
+import { createTestRedis, type TestRedis } from '../setup-redis.js';
 import { channels, guilds, invites, members, users } from '../../src/db/schema.js';
 import { hashPassword } from '../../src/modules/auth/password.js';
 
@@ -22,6 +23,7 @@ export interface TestActor {
 
 export interface TestRig {
   testDb: TestDb;
+  testRedis: TestRedis;
   app: FastifyInstance;
   ownerId: string;
   guildId: string;
@@ -34,20 +36,20 @@ export interface TestRig {
 }
 
 export async function setupRig(): Promise<TestRig> {
-  const testDb = await createTestDb();
+  const [testDb, testRedis] = await Promise.all([createTestDb(), createTestRedis()]);
   const config = loadConfig({
     NODE_ENV: 'test',
     HOST: '127.0.0.1',
     LOG_LEVEL: 'silent',
     DATABASE_URL: testDb.url,
-    REDIS_URL: 'redis://localhost:6379',
+    REDIS_URL: testRedis.url,
     JWT_ACCESS_SECRET: 'a'.repeat(48),
     JWT_REFRESH_SECRET: 'b'.repeat(48),
     JWT_ACCESS_TTL: '15m',
     JWT_REFRESH_TTL: '30d',
     UPLOADS_DIR: './test-uploads-dir',
   });
-  const app = await buildApp({ config, db: testDb.db });
+  const app = await buildApp({ config, db: testDb.db, redis: testRedis.clients });
   await app.ready();
 
   // Сидим owner-юзера, гилду, два канала, invite.
@@ -117,6 +119,7 @@ export async function setupRig(): Promise<TestRig> {
 
   return {
     testDb,
+    testRedis,
     app,
     ownerId: owner.id,
     guildId: guild.id,
@@ -126,7 +129,7 @@ export async function setupRig(): Promise<TestRig> {
     register,
     close: async () => {
       await app.close();
-      await testDb.close();
+      await Promise.all([testDb.close(), testRedis.close()]);
     },
   };
 }

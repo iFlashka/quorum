@@ -25,13 +25,20 @@ import { attachmentRoutes } from './modules/attachments/routes.js';
 import { LocalStorage } from './storage/index.js';
 import { EventBus } from './realtime/event-bus.js';
 import { wsPlugin } from './realtime/ws-plugin.js';
+import { createRedisClients, type RedisClients } from './plugins/redis.js';
+import { PresenceStore } from './modules/presence/store.js';
+import { PresencePubsub } from './modules/presence/pubsub.js';
+import { PresenceService } from './modules/presence/service.js';
+import { randomUUID } from 'node:crypto';
 
 export interface BuildAppOptions {
   config: Config;
   db: DbClient;
+  /** Готовые Redis-клиенты — позволяет тестам подсунуть своих. */
+  redis?: RedisClients;
 }
 
-export async function buildApp({ config, db }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<FastifyInstance> {
   const isDev = config.NODE_ENV === 'development';
 
   const app = Fastify({
@@ -60,6 +67,17 @@ export async function buildApp({ config, db }: BuildAppOptions): Promise<Fastify
   const storage = new LocalStorage(resolvePath(process.cwd(), config.UPLOADS_DIR));
   const attachmentsService = new AttachmentsService(db, storage);
   const events = new EventBus();
+
+  const redisClients = redis ?? createRedisClients(config.REDIS_URL);
+  const presenceStore = new PresenceStore(redisClients.cmd);
+  const presencePubsub = new PresencePubsub(redisClients.cmd, redisClients.sub, randomUUID());
+  const presenceService = new PresenceService({
+    db,
+    store: presenceStore,
+    pubsub: presencePubsub,
+    events,
+  });
+  await presenceService.start();
 
   // ---- Плагины ----
   await app.register(sensible);
@@ -95,11 +113,24 @@ export async function buildApp({ config, db }: BuildAppOptions): Promise<Fastify
   await app.register(attachmentRoutes({ service: attachmentsService }));
 
   // ---- WebSocket ----
-  await app.register(wsPlugin, { tokens, guilds: guildsService, events, db });
+  await app.register(wsPlugin, {
+    tokens,
+    guilds: guildsService,
+    events,
+    db,
+    presence: presenceService,
+  });
 
   // Прокидываем events наружу для тестов.
   app.decorate('events', events);
   app.decorate('guildsService', guildsService);
+  app.decorate('presenceService', presenceService);
+
+  app.addHook('onClose', async () => {
+    await presenceService.stop();
+    // Если клиенты подсунули снаружи — пусть их и закрывают (тесты).
+    if (!redis) await redisClients.close();
+  });
 
   return app;
 }
@@ -108,5 +139,6 @@ declare module 'fastify' {
   interface FastifyInstance {
     events: EventBus;
     guildsService: GuildsService;
+    presenceService: PresenceService;
   }
 }

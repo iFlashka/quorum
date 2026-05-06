@@ -22,11 +22,14 @@ import type { TokenService } from '../modules/auth/tokens.js';
 import type { GuildsService } from '../modules/guilds/service.js';
 import type { EventBus } from './event-bus.js';
 import type { DbClient } from '../db/client.js';
+import type { PresenceService } from '../modules/presence/service.js';
 import { eq } from 'drizzle-orm';
 import { users } from '../db/schema.js';
+import { randomUUID } from 'node:crypto';
 
 const HELLO_TIMEOUT_MS = 5_000;
 const HEARTBEAT_TIMEOUT_MS = 60_000;
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 30_000;
 
 const CLOSE_AUTH_FAILED = 4001;
 const CLOSE_HELLO_TIMEOUT = 4002;
@@ -38,22 +41,25 @@ interface WsPluginOptions {
   guilds: GuildsService;
   events: EventBus;
   db: DbClient;
+  presence: PresenceService;
 }
 
 export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
-  const { tokens, guilds, events, db } = opts;
+  const { tokens, guilds, events, db, presence } = opts;
 
   await app.register(websocket);
 
   app.get('/ws', { websocket: true }, (socket: WebSocket) => {
 
     let authenticatedUserId: string | null = null;
+    const sessionId = randomUUID();
     const unsubscribers: (() => void)[] = [];
     let helloTimer: NodeJS.Timeout | null = setTimeout(() => {
       sendError(socket, 'hello_timeout', 'клиент не прислал hello за 5s');
       socket.close(CLOSE_HELLO_TIMEOUT, 'hello_timeout');
     }, HELLO_TIMEOUT_MS);
     let heartbeatTimer: NodeJS.Timeout | null = null;
+    let presenceHeartbeatTimer: NodeJS.Timeout | null = null;
 
     const armHeartbeat = (): void => {
       if (heartbeatTimer) clearTimeout(heartbeatTimer);
@@ -113,8 +119,9 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
           // когда на месте Redis-presence. Пока — own connection echo.
           break;
         case 'presence.set':
-          // PHASE 2A.3: апдейт user.status в БД + broadcast presence.update.
-          // Сейчас просто эхо клиенту, чтобы UI оптимистично пометил.
+          // Юзер-выставляемый статус (online/idle/dnd) — отдельная семантика
+          // от connection-presence. Будет реализован в фазе 7 как поле
+          // `user.status` в БД с собственным broadcast'ом. Пока эхо клиенту.
           if (authenticatedUserId) {
             send(socket, {
               t: 'presence.update',
@@ -133,8 +140,16 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
     socket.on('close', () => {
       if (helloTimer) clearTimeout(helloTimer);
       if (heartbeatTimer) clearTimeout(heartbeatTimer);
+      if (presenceHeartbeatTimer) clearInterval(presenceHeartbeatTimer);
       for (const off of unsubscribers) off();
       unsubscribers.length = 0;
+      if (authenticatedUserId) {
+        const userId = authenticatedUserId;
+        // Лог-but-don't-throw: presence — best-effort.
+        presence.disconnect(userId, sessionId).catch((err: unknown) => {
+          app.log.warn({ err, userId }, 'presence.disconnect failed');
+        });
+      }
     });
 
     socket.on('error', () => {
@@ -170,6 +185,17 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
         }
         unsubscribers.push(events.subscribeUser(userId, dispatch));
 
+        // Регистрируем сессию в Redis-presence ДО получения initial-снимка,
+        // чтобы юзер видел в нём и собственный online-статус.
+        await presence.connect(userId, sessionId);
+        presenceHeartbeatTimer = setInterval(() => {
+          presence.heartbeat(userId).catch((err: unknown) => {
+            app.log.warn({ err, userId }, 'presence.heartbeat failed');
+          });
+        }, PRESENCE_HEARTBEAT_INTERVAL_MS);
+
+        const initialPresence = await presence.getInitialPresenceFor(userId);
+
         const user: PrivateUser = {
           id: me.id,
           username: me.username,
@@ -183,7 +209,7 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
           t: 'ready',
           user,
           guilds: userGuilds,
-          presence: [], // PHASE 2A.3
+          presence: initialPresence,
         });
       } catch (err) {
         app.log.warn({ err }, 'ws hello failed');
