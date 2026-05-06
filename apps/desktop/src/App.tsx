@@ -26,6 +26,13 @@ import { ChannelVoiceContext } from '@/voice/channel-context';
 import { useVoicePrefs } from '@/voice/prefs';
 import { useSoundPrefs } from '@/state/sound-prefs';
 import { soundManager } from '@/audio/sounds';
+import {
+  maybePlayMentionSound,
+  maybePlayMessageSound,
+  subscribeCallSounds,
+  subscribeChannelVoiceSounds,
+  subscribeVolumeSync,
+} from '@/audio/effects';
 import { checkForUpdate } from '@/lib/updater';
 import { useUpdater } from '@/state/updater-store';
 import { UpdaterToast } from '@/components/UpdaterToast';
@@ -216,9 +223,23 @@ function AppScreenWithBridge(): JSX.Element {
           },
           meId,
         );
+        maybePlayMentionSound(message, meId);
+        maybePlayMessageSound(message, meId);
       },
     });
   }, [runtime, queryClient, meId]);
+
+  useEffect(() => {
+    if (!meId) return;
+    const unsubCall = subscribeCallSounds();
+    const unsubChannel = subscribeChannelVoiceSounds(() => useAuth.getState().user?.id ?? null);
+    const unsubVolume = subscribeVolumeSync();
+    return () => {
+      unsubCall();
+      unsubChannel();
+      unsubVolume();
+    };
+  }, [meId]);
 
   useEffect(() => {
     void applyBadge(unreadCount);
