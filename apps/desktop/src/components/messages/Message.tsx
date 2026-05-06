@@ -98,7 +98,7 @@ export function Message({ message, grouped, userById, disableActions }: MessageP
         {!grouped && (
           <div className="flex items-baseline gap-2">
             <span
-              className="text-[15px] font-medium text-text-primary"
+              className="text-[16px] font-semibold text-text-primary"
               style={roleColorStyle(userById.get(message.author.id)?.role)}
             >
               {message.author.displayName || message.author.username}

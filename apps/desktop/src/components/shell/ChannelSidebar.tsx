@@ -102,7 +102,7 @@ function CategorySection({ name, channels, activeId, onSelect }: CategoryProps):
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex flex-1 items-center gap-0.5 py-0.5 text-[11px] font-semibold tracking-wide text-text-muted uppercase transition-colors hover:text-text-secondary"
+          className="flex flex-1 items-center gap-0.5 py-0.5 text-[12px] font-semibold tracking-wide text-text-muted uppercase transition-colors hover:text-text-secondary"
         >
           <ChevronDown
             size={10}
@@ -158,7 +158,7 @@ function TextChannelButton({ channel, active, onClick }: ChannelButtonProps): JS
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[15px] transition-colors',
+        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[16px] transition-colors',
         active
           ? 'bg-bg-active text-text-primary'
           : hasUnread
@@ -209,7 +209,7 @@ function VoiceChannelButton({ channel, active }: ChannelButtonProps): JSX.Elemen
       onClick={onClick}
       title={title}
       className={cn(
-        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[15px] transition-colors',
+        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[16px] transition-colors',
         inThisChannel
           ? 'text-accent-success'
           : active

@@ -15,7 +15,7 @@ export function MarkdownRenderer({ content, userById }: MarkdownRendererProps): 
 
   return (
     <div
-      className="prose-quorum text-[15px] leading-[1.375] whitespace-pre-wrap break-words text-text-primary"
+      className="prose-quorum text-[16px] leading-[1.375] whitespace-pre-wrap break-words text-text-primary"
       // sanitized DOMPurify-ом в renderMarkdown; ALLOWED_TAGS/ALLOWED_ATTR ограничены.
       dangerouslySetInnerHTML={{ __html: html }}
     />

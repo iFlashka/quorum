@@ -73,7 +73,7 @@ export function MemberList(): JSX.Element {
       )}
       {sections.map((section) => (
         <section key={section.key} className="mb-3">
-          <h3 className="px-2 pb-1 text-[12px] font-semibold tracking-wide text-text-muted uppercase">
+          <h3 className="px-2 pb-1 text-[12px] font-semibold tracking-wider text-text-muted uppercase">
             {section.label} — {section.members.length}
           </h3>
           <ul className="space-y-0.5">
@@ -161,7 +161,7 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
         disablePopover={isMe}
       />
       <span
-        className="flex-1 truncate text-[15px] font-medium text-text-secondary"
+        className="flex-1 truncate text-[16px] font-medium text-text-secondary"
         style={roleColorStyle(member.role)}
       >
         {member.nickname ?? member.displayName ?? member.username}

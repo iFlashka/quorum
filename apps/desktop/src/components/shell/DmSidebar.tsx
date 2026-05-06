@@ -122,14 +122,14 @@ function DmChannelRow({
       <div className="min-w-0 flex-1 leading-tight">
         <div
           className={cn(
-            'truncate text-[14px] font-medium',
+            'truncate text-[16px] font-medium',
             active ? 'text-text-primary' : 'text-text-secondary',
           )}
         >
           {displayName}
         </div>
         {dm.lastMessagePreview && (
-          <div className="truncate text-[12px] text-text-muted">{dm.lastMessagePreview}</div>
+          <div className="truncate text-[13px] text-text-muted">{dm.lastMessagePreview}</div>
         )}
       </div>
     </button>
