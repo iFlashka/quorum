@@ -11,4 +11,5 @@ export * from './api/guilds.js';
 export * from './api/livekit.js';
 export * from './api/messages.js';
 export * from './api/reactions.js';
+export * from './api/unfurl.js';
 export * from './ws/events.js';

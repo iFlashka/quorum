@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CornerUpLeft, Pencil, SmilePlus, Trash2 } from 'lucide-react';
 import type { PublicMember, PublicMessage } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useDeleteMessage, useEditMessage, useToggleReaction } from '@/hooks/use-messages';
 import { useSelection } from '@/state/selection';
 import { useReply } from '@/state/reply-store';
+import { extractUrls } from '@/hooks/use-unfurl';
 import { cn } from '@/lib/utils';
 import { roleColorStyle } from '@/lib/role-color';
 import { MemberAvatar } from '@/components/shell/MemberAvatar';
@@ -12,6 +13,7 @@ import { AttachmentTile } from './AttachmentTile';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ReplyContext } from './ReplyContext';
+import { Embed } from './Embed';
 
 interface MessageProps {
   message: PublicMessage;
@@ -34,6 +36,7 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
 
   const isMine = me?.id === message.author.id;
   const mentionsMe = !!me && message.mentionedUserIds.includes(me.id);
+  const embedUrls = useMemo(() => extractUrls(message.content).slice(0, 4), [message.content]);
 
   const submitEdit = (): void => {
     if (!draft.trim() || draft === message.content) {
@@ -135,6 +138,13 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
               <div className="mt-1 flex flex-col gap-1">
                 {message.attachments.map((a) => (
                   <AttachmentTile key={a.id} attachment={a} />
+                ))}
+              </div>
+            )}
+            {embedUrls.length > 0 && (
+              <div className="flex flex-col gap-1">
+                {embedUrls.map((u) => (
+                  <Embed key={u} url={u} />
                 ))}
               </div>
             )}

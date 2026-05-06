@@ -11,6 +11,7 @@ import { makeCallsApi, type CallsApi } from '@/api/calls';
 import { makeGuildsApi, type GuildsApi } from '@/api/guilds';
 import { makeLivekitApi, type LivekitApi } from '@/api/livekit';
 import { makeMessagesApi, type MessagesApi } from '@/api/messages';
+import { makeUnfurlApi, type UnfurlApi } from '@/api/unfurl';
 import { keychain, KEYCHAIN_REFRESH_TOKEN } from '@/lib/keychain';
 import { WebSocketManager } from '@/realtime/WebSocketManager';
 import { createSession, type Session } from './session';
@@ -27,6 +28,7 @@ export interface AppRuntime {
   avatarsApi: AvatarsApi;
   callsApi: CallsApi;
   livekitApi: LivekitApi;
+  unfurlApi: UnfurlApi;
   ws: WebSocketManager;
 }
 
@@ -83,6 +85,7 @@ export function createAppRuntime(serverUrl: string): AppRuntime {
     avatarsApi: makeAvatarsApi(api, serverUrl),
     callsApi: makeCallsApi(api),
     livekitApi: makeLivekitApi(api),
+    unfurlApi: makeUnfurlApi(api),
     ws,
   };
 }
