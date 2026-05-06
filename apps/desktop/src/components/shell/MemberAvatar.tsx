@@ -177,8 +177,15 @@ function MemberPopover({ user, member, anchorRef, onClose }: MemberPopoverProps)
     <div
       ref={ref}
       role="dialog"
-      style={{ top: pos.top, left: pos.left, width: POPOVER_W }}
-      className="fixed z-[70] overflow-hidden rounded-lg bg-bg-deepest shadow-elevated"
+      style={
+        {
+          top: pos.top,
+          left: pos.left,
+          width: POPOVER_W,
+          '--popover-origin': 'top left',
+        } as React.CSSProperties
+      }
+      className="animate-popover-pop-in fixed z-[70] overflow-hidden rounded-lg bg-bg-deepest shadow-elevated"
     >
       <div className="h-[60px] bg-accent-primary/90" />
       <div className="relative px-4 pb-4">

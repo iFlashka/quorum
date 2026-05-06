@@ -39,7 +39,7 @@ export function SettingsModal(): JSX.Element | null {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex bg-bg-default text-text-primary">
+    <div className="animate-overlay-fade-in fixed inset-0 z-[80] flex bg-bg-default text-text-primary">
       <aside className="flex w-[240px] shrink-0 flex-col border-r border-bg-darker bg-bg-darker px-2 pt-10">
         <ProfileCard onClick={() => setSection('account')} />
         <h2 className="mt-3 mb-2 px-2 text-[11px] font-semibold tracking-wide text-text-muted uppercase">

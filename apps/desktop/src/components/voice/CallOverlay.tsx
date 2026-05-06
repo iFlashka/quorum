@@ -84,8 +84,8 @@ export function CallOverlay(): JSX.Element | null {
 
   if (phase === 'ringing') {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
-        <div className="w-[420px] rounded-2xl bg-bg-elevated p-8 text-center shadow-elevated">
+      <div className="animate-overlay-fade-in fixed inset-0 z-[60] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+        <div className="animate-modal-pop-in w-[420px] rounded-2xl bg-bg-elevated p-8 text-center shadow-elevated">
           <PeerAvatar initials={initials} size={96} />
           <div className="mt-5 text-[13px] tracking-wide text-text-muted uppercase">
             Входящий вызов

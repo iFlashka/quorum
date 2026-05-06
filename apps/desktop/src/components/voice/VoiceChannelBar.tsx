@@ -336,8 +336,14 @@ function ScreenShareSplitPopover({
     <div
       ref={ref}
       role="dialog"
-      style={{ top: pos.top, left: pos.left }}
-      className="fixed z-[70]"
+      style={
+        {
+          top: pos.top,
+          left: pos.left,
+          '--popover-origin': 'bottom right',
+        } as React.CSSProperties
+      }
+      className="animate-popover-pop-in fixed z-[70]"
     >
       <ScreenSharePicker
         mode={mode}

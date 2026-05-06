@@ -48,7 +48,8 @@ export function UserCardMenu(): JSX.Element {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 bottom-full z-50 mb-2 min-w-[220px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
+          style={{ '--popover-origin': 'bottom right' } as React.CSSProperties}
+          className="animate-popover-pop-in absolute right-0 bottom-full z-50 mb-2 min-w-[220px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
         >
           <MenuItem
             icon={<Settings size={16} strokeWidth={1.75} />}
