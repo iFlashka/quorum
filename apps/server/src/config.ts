@@ -19,6 +19,15 @@ const ConfigSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'must be at least 32 chars'),
   JWT_ACCESS_TTL: TtlSchema.default('15m'),
   JWT_REFRESH_TTL: TtlSchema.default('30d'),
+
+  /** Корень для локальных uploads. Относительный путь — от `apps/server`. */
+  UPLOADS_DIR: z.string().default('../../infra/data/uploads'),
+  /** Максимальный размер одной загрузки. По умолчанию 25 МБ как в PROJECT.md. */
+  UPLOAD_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(25 * 1024 * 1024),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

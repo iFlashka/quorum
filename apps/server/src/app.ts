@@ -1,7 +1,9 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import { resolve as resolvePath } from 'node:path';
 import { type Config } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
@@ -18,7 +20,11 @@ import { ReactionsService } from './modules/reactions/service.js';
 import { reactionRoutes } from './modules/reactions/routes.js';
 import { ReadStatesService } from './modules/read-states/service.js';
 import { readStateRoutes } from './modules/read-states/routes.js';
+import { AttachmentsService } from './modules/attachments/service.js';
+import { attachmentRoutes } from './modules/attachments/routes.js';
+import { LocalStorage } from './storage/index.js';
 import { EventBus } from './realtime/event-bus.js';
+import { wsPlugin } from './realtime/ws-plugin.js';
 
 export interface BuildAppOptions {
   config: Config;
@@ -51,6 +57,8 @@ export async function buildApp({ config, db }: BuildAppOptions): Promise<Fastify
   const messagesService = new MessagesService(db);
   const reactionsService = new ReactionsService(db, messagesService);
   const readStatesService = new ReadStatesService(db, messagesService);
+  const storage = new LocalStorage(resolvePath(process.cwd(), config.UPLOADS_DIR));
+  const attachmentsService = new AttachmentsService(db, storage);
   const events = new EventBus();
 
   // ---- Плагины ----
@@ -69,6 +77,12 @@ export async function buildApp({ config, db }: BuildAppOptions): Promise<Fastify
       skipOnError: true,
     });
   }
+  await app.register(multipart, {
+    limits: {
+      fileSize: config.UPLOAD_MAX_BYTES,
+      files: 1,
+    },
+  });
   await app.register(authContextPlugin, { tokens });
 
   // ---- Роуты ----
@@ -78,8 +92,12 @@ export async function buildApp({ config, db }: BuildAppOptions): Promise<Fastify
   await app.register(messageRoutes({ service: messagesService, events }));
   await app.register(reactionRoutes({ service: reactionsService, events }));
   await app.register(readStateRoutes({ service: readStatesService }));
+  await app.register(attachmentRoutes({ service: attachmentsService }));
 
-  // Прокидываем events наружу для тестов / WebSocket-плагина (зарегистрируем дальше).
+  // ---- WebSocket ----
+  await app.register(wsPlugin, { tokens, guilds: guildsService, events, db });
+
+  // Прокидываем events наружу для тестов.
   app.decorate('events', events);
   app.decorate('guildsService', guildsService);
 
