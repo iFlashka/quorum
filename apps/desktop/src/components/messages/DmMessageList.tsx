@@ -118,7 +118,12 @@ export function DmMessageList({ dmChannelId, peerName }: DmMessageListProps): JS
           return (
             <div key={m.id}>
               {dayChanged && <DateDivider iso={m.createdAt} />}
-              <Message message={adapted} grouped={grouped} userById={userById} />
+              <Message
+                message={adapted}
+                grouped={grouped}
+                userById={userById}
+                disableActions
+              />
             </div>
           );
         })}

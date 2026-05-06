@@ -215,6 +215,7 @@ function AppScreenWithBridge(): JSX.Element {
   useEffect(() => {
     if (!runtime || !meId) return;
     return attachRealtimeBridge(runtime.ws, queryClient, {
+      meId,
       onMessageCreate: (message) => {
         const channelName = findChannelName(queryClient, message.channelId) ?? 'channel';
         void maybeNotifyMention(

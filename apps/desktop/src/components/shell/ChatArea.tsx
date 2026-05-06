@@ -1,5 +1,6 @@
 import { Bell, Hash, Inbox, MessageSquare, Pin, Search, Users, Volume2 } from 'lucide-react';
 import { useMemo } from 'react';
+import { useAuth } from '@/auth/store';
 import { useGuildChannels, useGuildMembers } from '@/hooks/use-guild-data';
 import { useTypersByChannel } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
@@ -19,14 +20,16 @@ export function ChatArea(): JSX.Element {
   const channel = channelsData?.channels.find((c) => c.id === channelId);
   const members = useMemo(() => membersData?.members ?? [], [membersData]);
 
+  const meId = useAuth((s) => s.user?.id);
   const typers = useTypersByChannel(channelId ?? '');
   const typingNames = useMemo(() => {
     if (typers.length === 0) return [];
     return typers
+      .filter((id) => id !== meId)
       .map((id) => members.find((m) => m.userId === id))
       .filter((m): m is NonNullable<typeof m> => !!m)
       .map((m) => m.displayName || m.username);
-  }, [typers, members]);
+  }, [typers, members, meId]);
 
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-bg-default">

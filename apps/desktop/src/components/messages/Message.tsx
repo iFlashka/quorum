@@ -20,9 +20,15 @@ interface MessageProps {
   /** True если предыдущее сообщение от того же автора и в пределах 5 минут — компактный рендер. */
   grouped: boolean;
   userById: Map<string, PublicMember>;
+  /**
+   * Скрыть hover-toolbar кнопки Reaction / Edit / Delete (Reply остаётся).
+   * Используется в DM-рендере: реакций для DM пока нет endpoint'а, edit/delete
+   * требуют DM-API а не channel-API.
+   */
+  disableActions?: boolean;
 }
 
-export function Message({ message, grouped, userById }: MessageProps): JSX.Element {
+export function Message({ message, grouped, userById, disableActions }: MessageProps): JSX.Element {
   const me = useAuth((s) => s.user);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
@@ -182,25 +188,27 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
 
       {!editing && (
         <div className="absolute top-[-12px] right-4 hidden gap-0.5 rounded-md border border-border-subtle bg-bg-elevated p-0.5 shadow-elevated group-hover:flex">
-          <EmojiPickerPopover
-            open={pickerOpen}
-            onClose={() => setPickerOpen(false)}
-            onSelect={(emoji) => {
-              setPickerOpen(false);
-              const existing = message.reactions.find((r) => r.emoji === emoji);
-              reactMut.mutate({
-                messageId: message.id,
-                emoji,
-                add: !existing?.reactedByMe,
-              });
-            }}
-            placement="down"
-            anchor={
-              <ActionButton title="Реакция" onClick={() => setPickerOpen((v) => !v)}>
-                <SmilePlus size={16} strokeWidth={1.75} />
-              </ActionButton>
-            }
-          />
+          {!disableActions && (
+            <EmojiPickerPopover
+              open={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+              onSelect={(emoji) => {
+                setPickerOpen(false);
+                const existing = message.reactions.find((r) => r.emoji === emoji);
+                reactMut.mutate({
+                  messageId: message.id,
+                  emoji,
+                  add: !existing?.reactedByMe,
+                });
+              }}
+              placement="down"
+              anchor={
+                <ActionButton title="Реакция" onClick={() => setPickerOpen((v) => !v)}>
+                  <SmilePlus size={16} strokeWidth={1.75} />
+                </ActionButton>
+              }
+            />
+          )}
           {channelId && (
             <ActionButton
               title="Ответить"
@@ -216,12 +224,12 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
               <CornerUpLeft size={16} strokeWidth={1.75} />
             </ActionButton>
           )}
-          {isMine && (
+          {isMine && !disableActions && (
             <ActionButton title="Редактировать" onClick={() => setEditing(true)}>
               <Pencil size={16} strokeWidth={1.75} />
             </ActionButton>
           )}
-          {isMine && (
+          {isMine && !disableActions && (
             <ActionButton
               title="Удалить"
               danger

@@ -26,7 +26,7 @@ import type { PresenceService } from '../modules/presence/service.js';
 import type { CallsService } from '../modules/calls/service.js';
 import type { VoiceChannelMembershipService } from '../modules/voice-channels/service.js';
 import { eq } from 'drizzle-orm';
-import { users } from '../db/schema.js';
+import { channels, users } from '../db/schema.js';
 import { randomUUID } from 'node:crypto';
 
 const HELLO_TIMEOUT_MS = 5_000;
@@ -110,18 +110,28 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
           send(socket, { t: 'pong' });
           break;
         case 'typing.start':
-        case 'typing.stop':
-          // Публикуем typing-событие во все гилды куда подписан юзер.
-          // Достаточно того что это происходит на уровне канала: гилды получат
-          // typing внутри своих listener'ов и проигнорируют чужие channelId.
-          events.publishToUser(authenticatedUserId, {
-            t: 'typing',
-            channelId: event.channelId,
-            userId: authenticatedUserId,
-          });
-          // FIXME(phase 2A.3): broadcast typing на guild-членов через guildId,
-          // когда на месте Redis-presence. Пока — own connection echo.
+        case 'typing.stop': {
+          // Резолвим guildId по channelId и broadcast'им всем подписчикам
+          // гилды. Cache в processed-WS можно добавить если станет узким
+          // местом — для пет-проекта SELECT на каждый typing OK.
+          const userId = authenticatedUserId;
+          if (!userId) break;
+          const channelId = event.channelId;
+          void (async (): Promise<void> => {
+            const [row] = await opts.db
+              .select({ guildId: channels.guildId })
+              .from(channels)
+              .where(eq(channels.id, channelId))
+              .limit(1);
+            if (!row) return;
+            events.publishToGuild(row.guildId, {
+              t: 'typing',
+              channelId,
+              userId,
+            });
+          })();
           break;
+        }
         case 'presence.set':
           // Юзер-выставляемый статус (online/idle/dnd) — отдельная семантика
           // от connection-presence. Будет реализован в фазе 7 как поле

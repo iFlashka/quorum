@@ -32,6 +32,8 @@ interface InfinitePages {
 }
 
 export interface RealtimeBridgeOptions {
+  /** Свой userId — нужен чтобы фильтровать собственные typing-echo от сервера. */
+  meId?: string;
   /**
    * Вызывается на каждое входящее `message.create`. Решение «уведомлять/нет»
    * принимает caller (App.tsx) — он знает meId, lookup имени канала и т.п.
@@ -74,6 +76,9 @@ function handleEvent(
       return;
 
     case 'typing':
+      // Сервер echo'ит typing отправителю — отфильтруем чтобы не показывать
+      // самому себе как «вы печатаете».
+      if (options.meId && event.userId === options.meId) return;
       useRealtime.getState().noteTyping(event);
       return;
 
