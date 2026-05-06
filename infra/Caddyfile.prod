@@ -1,0 +1,29 @@
+# Caddy v2 reverse-proxy для Quorum prod.
+# Подставляются ENV-переменные QUORUM_DOMAIN и LIVEKIT_DOMAIN
+# из docker-compose.prod.yml. TLS-серты получаются автоматически
+# через Let's Encrypt (HTTP-01 challenge).
+
+{$QUORUM_DOMAIN} {
+	encode zstd gzip
+
+	# WebSocket /ws — Caddy сам определяет Upgrade-header и проксирует.
+	reverse_proxy server:4421 {
+		# Долгие WS-коннекты должны жить.
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+}
+
+{$LIVEKIT_DOMAIN} {
+	encode zstd gzip
+
+	# LiveKit signaling: WSS на порту 443 (TLS) → ws://livekit:7880 внутри.
+	reverse_proxy livekit:7880 {
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+}

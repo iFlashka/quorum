@@ -20,6 +20,9 @@ apps/desktop/src-tauri/gen/
 .env
 .env.local
 .env.*.local
+.env.prod
+infra/.env.prod
+infra/server-dist/
 
 # Logs
 logs/

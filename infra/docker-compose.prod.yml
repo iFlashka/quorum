@@ -1,0 +1,131 @@
+# Production docker-compose для Quorum.
+# Поднимается на VPS:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Перед первым запуском:
+#   1. Скопировать .env.prod.example → .env.prod, заполнить секреты.
+#   2. В Caddyfile подставить реальные домены (QUORUM_DOMAIN / LIVEKIT_DOMAIN).
+#   3. В livekit.prod.yaml подставить ключи из .env.prod.
+#   4. В coturn/turnserver.prod.conf подставить TURN_SHARED_SECRET и external-ip.
+#   5. Открыть на firewall: 80, 443 (Caddy); 3478 udp/tcp + 49152-65535 udp (coturn).
+#   6. `docker compose pull && docker compose up -d` — Caddy сам возьмёт TLS-серт у Let's Encrypt.
+#
+# Backups: см. infra/backup.sh — поставь cron на ежедневный pg_dump.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: quorum-caddy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp' # HTTP/3
+    environment:
+      QUORUM_DOMAIN: ${QUORUM_DOMAIN}
+      LIVEKIT_DOMAIN: ${LIVEKIT_DOMAIN}
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ./data/caddy/data:/data
+      - ./data/caddy/config:/config
+    depends_on:
+      - server
+      - livekit
+    networks:
+      - quorum-net
+
+  server:
+    image: node:20-alpine
+    container_name: quorum-server
+    restart: unless-stopped
+    working_dir: /app
+    # Ожидается что собранный сервер лежит в ./server-dist (из CI или локального build).
+    # Команда запускает прод-bundle.
+    command: ['node', 'dist/index.js']
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4421
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://quorum:${POSTGRES_PASSWORD}@postgres:5432/quorum
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 30d
+      UPLOADS_DIR: /app/uploads
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET}
+      TURN_PUBLIC_URLS: turn:${COTURN_PUBLIC_HOST}:3478,stun:${COTURN_PUBLIC_HOST}:3478
+      TURN_TTL_SECONDS: 3600
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_WS_URL: wss://${LIVEKIT_DOMAIN}
+    volumes:
+      - ./server-dist:/app:ro
+      - ./data/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - quorum-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: quorum-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quorum
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: quorum
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U quorum -d quorum']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quorum-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: quorum-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quorum-net
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: quorum-livekit
+    restart: unless-stopped
+    command: ['--config', '/livekit.yaml']
+    ports:
+      - '7882:7882/udp' # ICE / media — Caddy не проксирует UDP-RTC, прокидываем напрямую
+    volumes:
+      - ./livekit/livekit.prod.yaml:/livekit.yaml:ro
+    depends_on:
+      - redis
+    networks:
+      - quorum-net
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: quorum-coturn
+    restart: unless-stopped
+    network_mode: host # coturn нужен прямой доступ к UDP-портам ICE
+    volumes:
+      - ./coturn/turnserver.prod.conf:/etc/coturn/turnserver.conf:ro
+
+networks:
+  quorum-net:
+    driver: bridge

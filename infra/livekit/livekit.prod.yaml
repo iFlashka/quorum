@@ -1,0 +1,24 @@
+# LiveKit prod-конфиг. Поднимается за Caddy (TLS), сам слушает plain ws на 7880.
+# Внешний доступ — wss://lk.example.com (через Caddy reverse-proxy).
+# UDP-порты для медиа (50000-60000) открываются напрямую через docker port-mapping.
+
+port: 7880
+bind_addresses:
+  - ''
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+
+redis:
+  address: redis:6379
+
+# Заменить на ключи из .env.prod (LIVEKIT_API_KEY: LIVEKIT_API_SECRET).
+# LiveKit сам не подтягивает env — секреты пишем в этот файл руками.
+keys:
+  REPLACE_LIVEKIT_API_KEY: REPLACE_LIVEKIT_API_SECRET
+
+logging:
+  level: info
