@@ -7,6 +7,11 @@ import { useChannelHasUnread } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
 import { UserCardMenu } from './UserCardMenu';
+import { useChannelVoice } from '@/voice/channel-store';
+import { useChannelVoiceOrchestrator } from '@/voice/channel-context';
+import { useVoice } from '@/voice/store';
+import { VoiceChannelMembers } from '@/components/voice/VoiceChannelMembers';
+import { VoiceChannelBar } from '@/components/voice/VoiceChannelBar';
 
 export function ChannelSidebar(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -49,6 +54,7 @@ export function ChannelSidebar(): JSX.Element {
         )}
       </nav>
 
+      <VoiceChannelBar />
       <UserCard />
     </aside>
   );
@@ -105,6 +111,7 @@ function CategorySection({ name, channels, activeId, onSelect }: CategoryProps):
                 active={ch.id === activeId}
                 onClick={() => onSelect(ch.id)}
               />
+              {ch.kind === 'voice' && <VoiceChannelMembers channelId={ch.id} />}
             </li>
           ))}
         </ul>
@@ -120,7 +127,14 @@ interface ChannelButtonProps {
 }
 
 function ChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.Element {
-  const Icon = channel.kind === 'text' ? Hash : Volume2;
+  if (channel.kind === 'voice') {
+    return <VoiceChannelButton channel={channel} active={active} onClick={onClick} />;
+  }
+  return <TextChannelButton channel={channel} active={active} onClick={onClick} />;
+}
+
+function TextChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.Element {
+  const Icon = Hash;
   const hasUnread = useChannelHasUnread(channel.id);
   return (
     <button
@@ -139,6 +153,56 @@ function ChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.El
       <span className={cn('truncate', hasUnread && !active && 'font-semibold')}>
         {channel.name}
       </span>
+    </button>
+  );
+}
+
+function VoiceChannelButton({ channel, active }: ChannelButtonProps): JSX.Element {
+  const guildId = useSelection((s) => s.guildId);
+  const channelPhase = useChannelVoice((s) => s.phase);
+  const channelActiveId = useChannelVoice((s) => s.channelId);
+  const callPhase = useVoice((s) => s.phase);
+  const orchestrator = useChannelVoiceOrchestrator();
+
+  const inThisChannel =
+    channelActiveId === channel.id && (channelPhase === 'joined' || channelPhase === 'joining');
+  const blockedByCall = callPhase !== 'idle';
+  const blockedByOtherChannel = !!channelActiveId && channelActiveId !== channel.id;
+
+  const onClick = (): void => {
+    if (inThisChannel) {
+      void orchestrator.leave();
+      return;
+    }
+    if (blockedByCall || blockedByOtherChannel || !guildId) return;
+    void orchestrator.join(channel.id, guildId);
+  };
+
+  const title = blockedByCall
+    ? 'Сначала завершите текущий звонок'
+    : blockedByOtherChannel
+      ? 'Сначала покиньте текущий голосовой канал'
+      : inThisChannel
+        ? 'Покинуть канал'
+        : 'Войти в канал';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[15px] transition-colors',
+        inThisChannel
+          ? 'text-accent-success'
+          : active
+            ? 'bg-bg-active text-text-primary'
+            : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
+        (blockedByCall || blockedByOtherChannel) && 'cursor-not-allowed opacity-50',
+      )}
+    >
+      <Volume2 size={20} strokeWidth={1.75} className="shrink-0 text-text-muted" />
+      <span className="truncate">{channel.name}</span>
     </button>
   );
 }

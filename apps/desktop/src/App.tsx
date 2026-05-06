@@ -17,9 +17,11 @@ import { initNotificationPrefs } from '@/state/notification-prefs';
 import { useAutostart } from '@/lib/autostart';
 import { Splash } from '@/components/Splash';
 import { VoiceOrchestrator } from '@/voice/orchestrator';
+import { ChannelVoiceOrchestrator } from '@/voice/channel-orchestrator';
 import { lookupParticipantInCache } from '@/voice/lookup';
 import { CallOverlay } from '@/components/voice/CallOverlay';
 import { VoiceOrchestratorContext } from '@/voice/context';
+import { ChannelVoiceContext } from '@/voice/channel-context';
 import { useVoicePrefs } from '@/voice/prefs';
 
 type Stage = 'bootstrapping' | 'onboarding' | 'login' | 'register' | 'authed';
@@ -214,11 +216,25 @@ function AppScreenWithBridge(): JSX.Element {
     return () => voiceOrchestrator.stop();
   }, [voiceOrchestrator]);
 
-  if (!voiceOrchestrator) return <AppScreen />;
+  const channelOrchestrator = useMemo(() => {
+    if (!runtime) return null;
+    return new ChannelVoiceOrchestrator({
+      livekitApi: runtime.livekitApi,
+      getMe: () => {
+        const u = useAuth.getState().user;
+        if (!u) return null;
+        return { id: u.id, displayName: u.displayName || u.username };
+      },
+    });
+  }, [runtime]);
+
+  if (!voiceOrchestrator || !channelOrchestrator) return <AppScreen />;
   return (
     <VoiceOrchestratorContext.Provider value={voiceOrchestrator}>
-      <AppScreen />
-      <CallOverlay />
+      <ChannelVoiceContext.Provider value={channelOrchestrator}>
+        <AppScreen />
+        <CallOverlay />
+      </ChannelVoiceContext.Provider>
     </VoiceOrchestratorContext.Provider>
   );
 }
