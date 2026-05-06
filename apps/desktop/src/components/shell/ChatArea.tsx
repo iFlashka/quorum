@@ -6,6 +6,7 @@ import { useSelection } from '@/state/selection';
 import { MessageList } from '@/components/messages/MessageList';
 import { MessageInput } from '@/components/messages/MessageInput';
 import { EmptyState } from '@/components/EmptyState';
+import { ConnectionStatusBanner } from '@/components/ConnectionStatusBanner';
 import { useChannelVoice } from '@/voice/channel-store';
 import { VoiceChannelGrid } from '@/components/voice/VoiceChannelGrid';
 import { InlineCallBanner } from '@/components/voice/InlineCallBanner';
@@ -66,6 +67,7 @@ export function ChatArea(): JSX.Element {
         </div>
       </header>
 
+      <ConnectionStatusBanner />
       <InlineCallBanner />
 
       {!channel ? (
