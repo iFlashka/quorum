@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CornerUpLeft, File as FileIcon, Plus, Smile, X } from 'lucide-react';
+import {
+  CornerUpLeft,
+  File as FileIcon,
+  Gift,
+  PartyPopper,
+  Plus,
+  Smile,
+  Sticker,
+  X,
+} from 'lucide-react';
 import type { PublicAttachment, PublicMember } from '@quorum/shared';
 import { useSendMessage } from '@/hooks/use-messages';
 import { useGuildMembers } from '@/hooks/use-guild-data';
@@ -341,6 +350,15 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
           disabled={!channelId || sendMut.isPending}
           className="flex-1 resize-none bg-transparent text-[15px] text-text-primary outline-none placeholder:text-text-muted"
         />
+        <DecorativeIconButton title="Подарок (скоро)">
+          <Gift size={20} strokeWidth={1.75} />
+        </DecorativeIconButton>
+        <DecorativeIconButton title="GIF (скоро)">
+          <span className="text-[10px] font-bold tracking-wider">GIF</span>
+        </DecorativeIconButton>
+        <DecorativeIconButton title="Стикеры (скоро)">
+          <Sticker size={20} strokeWidth={1.75} />
+        </DecorativeIconButton>
         <EmojiPickerPopover
           open={pickerOpen}
           onClose={() => setPickerOpen(false)}
@@ -357,6 +375,9 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
             </button>
           }
         />
+        <DecorativeIconButton title="Soundboard (скоро)">
+          <PartyPopper size={20} strokeWidth={1.75} />
+        </DecorativeIconButton>
       </div>
       {error && (
         <p className="mt-2 px-2 text-[12px] text-accent-danger" role="alert">
@@ -364,6 +385,31 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
         </p>
       )}
     </footer>
+  );
+}
+
+/**
+ * Декоративная кнопка в правом ряду input-bar — пока без функционала, для
+ * визуального соответствия Discord-стилю. Tooltip «… (скоро)» сообщает что
+ * фича запланирована.
+ */
+function DecorativeIconButton({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:text-text-secondary"
+      onClick={() => undefined}
+    >
+      {children}
+    </button>
   );
 }
 
