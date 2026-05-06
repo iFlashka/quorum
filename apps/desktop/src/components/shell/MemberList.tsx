@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/store';
 import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
 import { MemberAvatar } from './MemberAvatar';
+import { Skeleton } from '@/components/Skeleton';
 import { cn } from '@/lib/utils';
 import { roleColorStyle } from '@/lib/role-color';
 
@@ -49,7 +50,17 @@ export function MemberList(): JSX.Element {
   return (
     <aside className="flex w-[240px] shrink-0 flex-col overflow-y-auto bg-bg-darker pt-4 pr-2 pl-2">
       {isLoading && members.length === 0 && (
-        <div className="px-2 text-[13px] text-text-muted">Загрузка участников…</div>
+        <div className="space-y-3 px-2">
+          <Skeleton className="h-3 w-20" />
+          <div className="space-y-1.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-3 flex-1" style={{ maxWidth: 120 - i * 18 }} />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
       {sections.map((section) => (
         <section key={section.key} className="mb-3">

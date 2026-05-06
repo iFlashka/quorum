@@ -10,6 +10,7 @@ import { Message } from './Message';
 import { DateDivider, sameDay } from './DateDivider';
 import { NewMessageDivider } from './NewMessageDivider';
 import { ChannelWelcome } from './ChannelWelcome';
+import { Skeleton } from '@/components/Skeleton';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -117,7 +118,21 @@ export function MessageList(): JSX.Element {
         />
       )}
       {isLoading && flat.length === 0 && (
-        <div className="px-4 py-8 text-center text-text-muted">Загрузка сообщений…</div>
+        <div className="space-y-5 px-4 py-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex gap-4">
+              <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-2 w-12" />
+                </div>
+                <Skeleton className="h-3" style={{ width: `${88 - i * 12}%` }} />
+                {i % 2 === 0 && <Skeleton className="h-3 w-[60%]" />}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
       <div>
         {flat.map((m, i) => {

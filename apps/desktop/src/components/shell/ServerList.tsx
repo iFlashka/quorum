@@ -6,6 +6,7 @@ import { useRuntime } from '@/auth/runtime-store';
 import { useGuilds, useGuildChannels } from '@/hooks/use-guild-data';
 import { useAnyChannelHasUnread, useTotalMentionsAcross } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
+import { Skeleton } from '@/components/Skeleton';
 import { cn } from '@/lib/utils';
 
 export function ServerList(): JSX.Element {
@@ -39,7 +40,11 @@ export function ServerList(): JSX.Element {
   return (
     <nav className="flex w-[72px] shrink-0 flex-col items-center gap-2 bg-bg-deepest pt-3 pb-3">
       {isLoading && guilds.length === 0 && (
-        <div className="h-12 w-12 animate-pulse rounded-3xl bg-bg-default" />
+        <>
+          <Skeleton className="h-12 w-12 rounded-3xl" />
+          <Skeleton className="h-12 w-12 rounded-3xl" />
+          <Skeleton className="h-12 w-12 rounded-3xl" />
+        </>
       )}
       {guilds.map((g) => (
         <ServerIcon

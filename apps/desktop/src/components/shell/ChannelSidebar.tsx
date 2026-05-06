@@ -12,6 +12,7 @@ import { useChannelVoiceOrchestrator } from '@/voice/channel-context';
 import { useVoice } from '@/voice/store';
 import { VoiceChannelMembers } from '@/components/voice/VoiceChannelMembers';
 import { VoiceChannelBar } from '@/components/voice/VoiceChannelBar';
+import { Skeleton } from '@/components/Skeleton';
 
 export function ChannelSidebar(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -44,7 +45,19 @@ export function ChannelSidebar(): JSX.Element {
 
       <nav className="flex-1 overflow-y-auto pt-2 pr-2 pl-2">
         {isLoading && channels.length === 0 && (
-          <div className="px-2 py-2 text-[13px] text-text-muted">Загрузка каналов…</div>
+          <div className="space-y-1.5 px-2 py-2">
+            <Skeleton className="h-3 w-24" />
+            <div className="space-y-1 pt-1">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-[85%]" />
+              <Skeleton className="h-6 w-[60%]" />
+            </div>
+            <Skeleton className="mt-3 h-3 w-28" />
+            <div className="space-y-1 pt-1">
+              <Skeleton className="h-6 w-[75%]" />
+              <Skeleton className="h-6 w-[55%]" />
+            </div>
+          </div>
         )}
         {grouped.text.length > 0 && (
           <CategorySection name="Текстовые каналы" channels={grouped.text} activeId={channelId} onSelect={setChannel} />
