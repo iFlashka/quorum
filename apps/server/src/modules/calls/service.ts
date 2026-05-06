@@ -20,6 +20,7 @@ import type { DbClient } from '../../db/client.js';
 import { members } from '../../db/schema.js';
 import type { EventBus } from '../../realtime/event-bus.js';
 import type { ServerEvent } from '@quorum/shared';
+import type { DmChannelsService } from '../dm/service.js';
 
 export type CallStatus = 'ringing' | 'active' | 'ended';
 
@@ -28,6 +29,8 @@ export interface CallRecord {
   fromUserId: string;
   toUserId: string;
   status: CallStatus;
+  /** Unix-ms когда status стал 'active'. Используется для duration в call_ended system-message. */
+  acceptedAt: number | null;
   /** setTimeout-handle для авто-отбоя по timeout. Чистится при любом терминальном переходе. */
   timeoutTimer: NodeJS.Timeout | null;
 }
@@ -45,6 +48,7 @@ export class CallsService {
   constructor(
     private readonly db: DbClient,
     private readonly events: EventBus,
+    private readonly dmChannels: DmChannelsService,
   ) {}
 
   /** Вызывается WS-плагином когда юзер отваливается — отбиваем все его звонки. */
@@ -60,7 +64,16 @@ export class CallsService {
     if (call.status === 'ringing') {
       this.terminate(call, otherId, { t: 'call.declined', callId, reason: 'unreachable' });
     } else {
+      const durationText = formatDuration(
+        call.acceptedAt ? Date.now() - call.acceptedAt : 0,
+      );
       this.terminate(call, otherId, { t: 'call.ended', callId });
+      void this.broadcastSystemMessage(
+        call.fromUserId,
+        call.toUserId,
+        'call_ended',
+        `Звонок завершён · ${durationText}`,
+      );
     }
   }
 
@@ -95,6 +108,7 @@ export class CallsService {
       fromUserId,
       toUserId,
       status: 'ringing',
+      acceptedAt: null,
       timeoutTimer: setTimeout(() => this.timeoutRing(callId), RING_TIMEOUT_MS),
     };
     this.calls.set(callId, record);
@@ -119,8 +133,10 @@ export class CallsService {
     if (call?.toUserId !== userId || call.status !== 'ringing') return;
     this.clearTimeout(call);
     call.status = 'active';
+    call.acceptedAt = Date.now();
     this.events.publishToUser(call.fromUserId, { t: 'call.accepted', callId });
     this.events.publishToUser(call.toUserId, { t: 'call.accepted', callId });
+    void this.broadcastSystemMessage(call.fromUserId, call.toUserId, 'call_started', 'Начал звонок');
   }
 
   decline(userId: string, callId: string, reason: 'busy' | 'rejected' = 'rejected'): void {
@@ -141,7 +157,16 @@ export class CallsService {
     if (call.fromUserId !== userId && call.toUserId !== userId) return;
     if (call.status !== 'active') return;
     const otherId = call.fromUserId === userId ? call.toUserId : call.fromUserId;
+    const durationText = formatDuration(
+      call.acceptedAt ? Date.now() - call.acceptedAt : 0,
+    );
     this.terminate(call, otherId, { t: 'call.ended', callId });
+    void this.broadcastSystemMessage(
+      call.fromUserId,
+      call.toUserId,
+      'call_ended',
+      `Звонок завершён · ${durationText}`,
+    );
   }
 
   forwardOffer(userId: string, callId: string, sdp: string): void {
@@ -246,4 +271,40 @@ export class CallsService {
       .where(eq(members.userId, b));
     return bRows.some((r) => aGuilds.has(r.guildId));
   }
+
+  /**
+   * Вставляет system-сообщение в DM между caller/callee и шлёт обоим
+   * `dm.message.create`. Ошибка не валит звонок — только логируется
+   * через void-catch в caller'ах.
+   */
+  private async broadcastSystemMessage(
+    fromUserId: string,
+    toUserId: string,
+    kind: 'call_started' | 'call_ended',
+    content: string,
+  ): Promise<void> {
+    try {
+      const message = await this.dmChannels.insertSystemMessage(
+        fromUserId,
+        toUserId,
+        kind,
+        content,
+      );
+      this.events.publishToUser(fromUserId, { t: 'dm.message.create', message });
+      this.events.publishToUser(toUserId, { t: 'dm.message.create', message });
+    } catch {
+      // не падаем — звонок уже state-completed.
+    }
+  }
+}
+
+/** «1 ч 23 мин 12 сек» / «3 мин 4 сек» / «12 сек». */
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h} ч ${m} мин ${s} сек`;
+  if (m > 0) return `${m} мин ${s} сек`;
+  return `${s} сек`;
 }

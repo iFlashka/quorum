@@ -30,6 +30,17 @@ export const PublicDmChannelListEntrySchema = PublicDmChannelSchema.extend({
 export type PublicDmChannelListEntry = z.infer<typeof PublicDmChannelListEntrySchema>;
 
 /**
+ * Тип сообщения. 'text' — обычное; 'call_started'/'call_ended' — системные
+ * пометки от CallsService в DM-канал (1:1 звонок принят / завершён).
+ */
+export const DmMessageKindSchema = z.union([
+  z.literal('text'),
+  z.literal('call_started'),
+  z.literal('call_ended'),
+]);
+export type DmMessageKind = z.infer<typeof DmMessageKindSchema>;
+
+/**
  * Сообщение в DM. Структура совпадает с PublicMessage кроме того что вместо
  * channelId — dmChannelId (один из двух всегда непустой, никогда оба).
  * Дублируем форму чтобы клиент мог разводить flows по типу target'а.
@@ -37,6 +48,7 @@ export type PublicDmChannelListEntry = z.infer<typeof PublicDmChannelListEntrySc
 export const PublicDmMessageSchema = z.object({
   id: z.string().uuid(),
   dmChannelId: z.string().uuid(),
+  kind: DmMessageKindSchema,
   author: PublicMessageAuthorSchema,
   content: z.string(),
   replyToMessageId: z.string().uuid().nullable(),

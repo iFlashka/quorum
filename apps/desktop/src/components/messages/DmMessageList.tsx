@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/Skeleton';
 import { Message } from './Message';
 import { DateDivider, sameDay } from './DateDivider';
 import { ChannelWelcome } from './ChannelWelcome';
+import { SystemCallMessage } from './SystemCallMessage';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -115,6 +116,15 @@ export function DmMessageList({ dmChannelId, peerName }: DmMessageListProps): JS
             prev.author.id === m.author.id &&
             curDate.getTime() - new Date(prev.createdAt).getTime() < FIVE_MINUTES;
 
+          // System-сообщения (call_started/ended) рендерим отдельным компонентом.
+          if (m.kind !== 'text') {
+            return (
+              <div key={m.id}>
+                {dayChanged && <DateDivider iso={m.createdAt} />}
+                <SystemCallMessage message={m} />
+              </div>
+            );
+          }
           // Адаптируем DmMessage → PublicMessage для переиспользования
           // существующего Message.tsx. Подменяем dmChannelId → channelId
           // (компонент его использует только для reply-state-keying).

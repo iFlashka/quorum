@@ -94,7 +94,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   });
   await presenceService.start();
 
-  const callsService = new CallsService(db, events);
+  const callsService = new CallsService(db, events, dmChannelsService);
   const turnService = new TurnService({
     sharedSecret: config.TURN_SHARED_SECRET,
     urls: config.TURN_PUBLIC_URLS.split(',').map((u) => u.trim()).filter(Boolean),

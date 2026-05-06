@@ -163,6 +163,12 @@ export const messages = pgTable(
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    /**
+     * Тип сообщения: 'text' — обычное; 'call_started' / 'call_ended' —
+     * системные пометки в DM при 1:1-звонках. UI рендерит system-types
+     * без аватара/имени, специальной плашкой.
+     */
+    kind: text('kind').notNull().default('text'),
     content: text('content').notNull(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- self-ref на messages
     replyToMessageId: uuid('reply_to_message_id').references((): any => messages.id, {

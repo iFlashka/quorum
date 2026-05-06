@@ -22,6 +22,13 @@
       "when": 1778890000000,
       "tag": "0002_phase8_dm",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778890600000,
+      "tag": "0003_phase8_message_kind",
+      "breakpoints": true
     }
   ]
 }

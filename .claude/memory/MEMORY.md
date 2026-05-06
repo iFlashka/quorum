@@ -15,6 +15,7 @@
 - [project_phase5_decisions.md](project_phase5_decisions.md) — фаза 5: LiveKit SFU для group voice, JWT-токены, разделение 1:1 vs group
 - [project_phase6_decisions.md](project_phase6_decisions.md) — фаза 6: видео и screenshare; perfect-negotiation в 1:1, LiveKit-API в group
 - [project_ui_polish_2026.md](project_ui_polish_2026.md) — Discord-style правки UI + звуки (post-фаза-7, май 2026)
+- [project_screen_share_quality_plan.md](project_screen_share_quality_plan.md) — план stream quality picker (Discord-style); обсуждён, код не начат, ждёт ответов на открытые вопросы
 - [pending_smoke_tests.md](pending_smoke_tests.md) — что протестить руками: voice/video фаз 4–6
 
 ## Feedback

@@ -185,6 +185,7 @@ export class DmChannelsService {
         .values({
           dmChannelId,
           authorId: meId,
+          kind: 'text',
           content: req.content,
           replyToMessageId: req.replyToMessageId ?? null,
         })
@@ -414,9 +415,12 @@ export class DmChannelsService {
       if (!row.dmChannelId) {
         throw new Error(`hydrateDm_received_channel_row:${row.id}`);
       }
+      const kind =
+        row.kind === 'call_started' || row.kind === 'call_ended' ? row.kind : 'text';
       return {
         id: row.id,
         dmChannelId: row.dmChannelId,
+        kind,
         author,
         content: row.content,
         replyToMessageId: row.replyToMessageId,
@@ -428,6 +432,32 @@ export class DmChannelsService {
         createdAt: row.createdAt.toISOString(),
       };
     });
+  }
+
+  /**
+   * System-сообщение от имени `authorId` в DM-канал между ним и `peerId`.
+   * Создаёт DM-канал если не было. Используется CallsService для пометок
+   * call_started/call_ended.
+   */
+  async insertSystemMessage(
+    authorId: string,
+    peerId: string,
+    kind: 'call_started' | 'call_ended',
+    content: string,
+  ): Promise<PublicDmMessage> {
+    const channel = await this.getOrCreate(authorId, peerId);
+    const [row] = await this.db
+      .insert(messages)
+      .values({
+        dmChannelId: channel.id,
+        authorId,
+        kind,
+        content,
+      })
+      .returning();
+    if (!row) throw new Error('failed_to_insert_system_message');
+    const hydrated = await this.hydrate(this.db, [row], authorId);
+    return hydrated[0]!;
   }
 }
 
