@@ -28,6 +28,7 @@
     "store:allow-save",
     "store:allow-load",
     "notification:default",
-    "autostart:default"
+    "autostart:default",
+    "global-shortcut:default"
   ]
 }

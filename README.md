@@ -6,7 +6,7 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 
 ## Текущий статус
 
-**Фазы 0–3 закрыты.** Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна.
+**Фазы 0–4 закрыты.** Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна; голосовые звонки 1-на-1 через WebRTC с TURN-relay (наш coturn), push-to-talk и WebRTC-шумодав.
 
 См. полный план фаз в [PROJECT.md](PROJECT.md#план-работы--фазы).
 
@@ -19,6 +19,15 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 - Бейдж непрочитанных: красная точка на tray-иконке + `Quorum • N` в заголовке (видно в taskbar).
 - Положение/размер окна сохраняется между запусками.
 - `Запускать с системой` → бинарь стартует с `--minimized`, идёт сразу в трей.
+
+### Голосовые звонки 1-на-1
+
+- В правой колонке (Members) при наведении на участника появляется кнопка-телефон → исходящий звонок.
+- При входящем — fullscreen-модал с Accept / Decline.
+- В активном звонке снизу появляется панель: имя собеседника, mute, deafen, hangup.
+- В UserCardMenu → «Голос»: режим (`Голосовая активация` / `Push-to-talk`), shortcut PTT (по умолчанию `Shift+Space`), WebRTC-флаги шумодава (все включены по дефолту).
+- Звонить можно только участникам, с которыми есть общая гилда.
+- Если требуется TURN-relay — клиент берёт ephemeral creds через `GET /turn/credentials` (HMAC-SHA1 по RFC). В dev secret лежит в `apps/server/.env::TURN_SHARED_SECRET` (тот же что в `infra/coturn/turnserver.conf::static-auth-secret`).
 
 ## Требования к окружению
 

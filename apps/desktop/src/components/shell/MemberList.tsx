@@ -1,7 +1,11 @@
+import { Phone } from 'lucide-react';
 import type { PublicMember, UserStatus } from '@quorum/shared';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useRealtime } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
+import { useAuth } from '@/auth/store';
+import { useVoice } from '@/voice/store';
+import { useVoiceOrchestrator } from '@/voice/context';
 import { cn } from '@/lib/utils';
 
 const STATUS_COLOR: Record<UserStatus, string> = {
@@ -65,11 +69,22 @@ export function MemberList(): JSX.Element {
 
 function MemberRow({ member }: { member: PublicMember }): JSX.Element {
   const muted = member.status === 'offline';
+  const meId = useAuth((s) => s.user?.id);
+  const phase = useVoice((s) => s.phase);
+  const orchestrator = useVoiceOrchestrator();
+  const isMe = meId === member.userId;
+  const callable =
+    !isMe && member.status !== 'offline' && phase === 'idle';
+
+  const onCall = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    void orchestrator.placeCall(member.userId);
+  };
+
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        'flex w-full items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-bg-hover',
+        'group flex w-full items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-bg-hover',
         muted && 'opacity-50',
       )}
     >
@@ -84,10 +99,21 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
           )}
         />
       </div>
-      <span className="truncate text-[15px] font-medium text-text-secondary">
+      <span className="flex-1 truncate text-[15px] font-medium text-text-secondary">
         {member.nickname ?? member.displayName ?? member.username}
       </span>
-    </button>
+      {callable && (
+        <button
+          type="button"
+          aria-label={`call ${member.username}`}
+          onClick={onCall}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-bg-default hover:text-accent-success"
+          title="Позвонить"
+        >
+          <Phone size={14} strokeWidth={2} />
+        </button>
+      )}
+    </div>
   );
 }
 

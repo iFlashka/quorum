@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, BellOff, Check, LogOut, Power, RefreshCw, Settings } from 'lucide-react';
+import {
+  Bell,
+  BellOff,
+  Check,
+  ChevronRight,
+  LogOut,
+  Mic,
+  Power,
+  RefreshCw,
+  Settings,
+} from 'lucide-react';
 import { useRuntime } from '@/auth/runtime-store';
 import { useNotificationPrefs } from '@/state/notification-prefs';
 import { useAutostart } from '@/lib/autostart';
 import { cn } from '@/lib/utils';
+import { VoiceSettingsPopover } from './VoiceSettingsPopover';
 
 /**
  * Кнопка-шестерёнка в нижней user-card с dropdown:
@@ -14,8 +25,11 @@ import { cn } from '@/lib/utils';
  *
  * Полноценный Settings-screen появится в фазе 7; здесь — самый частый минимум.
  */
+type MenuView = 'main' | 'voice';
+
 export function UserCardMenu(): JSX.Element {
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<MenuView>('main');
   const ref = useRef<HTMLDivElement>(null);
   const logout = useRuntime((s) => s.logout);
   const switchServer = useRuntime((s) => s.switchServer);
@@ -30,10 +44,16 @@ export function UserCardMenu(): JSX.Element {
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent): void => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (!ref.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setView('main');
+      }
     };
     const onEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        setView('main');
+      }
     };
     document.addEventListener('mousedown', onClick);
     document.addEventListener('keydown', onEsc);
@@ -60,47 +80,89 @@ export function UserCardMenu(): JSX.Element {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 bottom-full z-50 mb-2 min-w-[220px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
+          className="absolute right-0 bottom-full z-50 mb-2 min-w-[260px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
         >
-          <ToggleItem
-            icon={muted ? <BellOff size={16} strokeWidth={1.75} /> : <Bell size={16} strokeWidth={1.75} />}
-            checked={!muted}
-            onClick={() => void setMuted(!muted)}
-          >
-            Уведомления
-          </ToggleItem>
-          {autostartReady && (
-            <ToggleItem
-              icon={<Power size={16} strokeWidth={1.75} />}
-              checked={autostartEnabled}
-              onClick={() => void toggleAutostart()}
-            >
-              Запускать с системой
-            </ToggleItem>
+          {view === 'voice' ? (
+            <VoiceSettingsPopover onBack={() => setView('main')} />
+          ) : (
+            <>
+              <ToggleItem
+                icon={
+                  muted ? (
+                    <BellOff size={16} strokeWidth={1.75} />
+                  ) : (
+                    <Bell size={16} strokeWidth={1.75} />
+                  )
+                }
+                checked={!muted}
+                onClick={() => void setMuted(!muted)}
+              >
+                Уведомления
+              </ToggleItem>
+              <NavItem
+                icon={<Mic size={16} strokeWidth={1.75} />}
+                onClick={() => setView('voice')}
+              >
+                Голос
+              </NavItem>
+              {autostartReady && (
+                <ToggleItem
+                  icon={<Power size={16} strokeWidth={1.75} />}
+                  checked={autostartEnabled}
+                  onClick={() => void toggleAutostart()}
+                >
+                  Запускать с системой
+                </ToggleItem>
+              )}
+              <Divider />
+              <MenuItem
+                icon={<RefreshCw size={16} strokeWidth={1.75} />}
+                onClick={() => {
+                  setOpen(false);
+                  setView('main');
+                  void switchServer();
+                }}
+              >
+                Сменить сервер
+              </MenuItem>
+              <MenuItem
+                icon={<LogOut size={16} strokeWidth={1.75} />}
+                danger
+                onClick={() => {
+                  setOpen(false);
+                  setView('main');
+                  void logout();
+                }}
+              >
+                Выйти
+              </MenuItem>
+            </>
           )}
-          <Divider />
-          <MenuItem
-            icon={<RefreshCw size={16} strokeWidth={1.75} />}
-            onClick={() => {
-              setOpen(false);
-              void switchServer();
-            }}
-          >
-            Сменить сервер
-          </MenuItem>
-          <MenuItem
-            icon={<LogOut size={16} strokeWidth={1.75} />}
-            danger
-            onClick={() => {
-              setOpen(false);
-              void logout();
-            }}
-          >
-            Выйти
-          </MenuItem>
         </div>
       )}
     </div>
+  );
+}
+
+function NavItem({
+  icon,
+  onClick,
+  children,
+}: {
+  icon: React.ReactNode;
+  onClick: () => void;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[14px] text-text-secondary transition-colors hover:bg-accent-primary hover:text-white"
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 truncate">{children}</span>
+      <ChevronRight size={14} className="shrink-0 opacity-60" />
+    </button>
   );
 }
 

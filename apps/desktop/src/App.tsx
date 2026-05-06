@@ -16,6 +16,11 @@ import { maybeNotifyMention } from '@/lib/notifications';
 import { initNotificationPrefs } from '@/state/notification-prefs';
 import { useAutostart } from '@/lib/autostart';
 import { Splash } from '@/components/Splash';
+import { VoiceOrchestrator } from '@/voice/orchestrator';
+import { lookupParticipantInCache } from '@/voice/lookup';
+import { CallOverlay } from '@/components/voice/CallOverlay';
+import { VoiceOrchestratorContext } from '@/voice/context';
+import { useVoicePrefs } from '@/voice/prefs';
 
 type Stage = 'bootstrapping' | 'onboarding' | 'login' | 'register' | 'authed';
 
@@ -58,6 +63,7 @@ function AppInner(): JSX.Element {
       // Каждое — best-effort: если упадёт (web-режим, нет плагина) — игнор.
       unlistenMute = await initNotificationPrefs().catch(() => undefined);
       void useAutostart.getState().refresh();
+      void useVoicePrefs.getState().hydrate();
 
       const cfg = await loadServerConfig().catch(() => null);
       if (!cfg) {
@@ -158,7 +164,9 @@ function AppInner(): JSX.Element {
  * Привязывает realtime-bridge к QueryClient — `useQueryClient` доступен только
  * внутри `QueryClientProvider`, поэтому отдельный компонент. Здесь же:
  *   - bridge'у выдаётся mention-notifier с lookup имени канала из cache,
- *   - подписка на unread-счётчик зеркалит его в tray-иконку и заголовок окна.
+ *   - подписка на unread-счётчик зеркалит его в tray-иконку и заголовок окна,
+ *   - voice-orchestrator стартует на runtime и подключает CallOverlay через
+ *     React-context.
  */
 function AppScreenWithBridge(): JSX.Element {
   const runtime = useRuntime((s) => s.runtime);
@@ -187,5 +195,29 @@ function AppScreenWithBridge(): JSX.Element {
     void applyBadge(unreadCount);
   }, [unreadCount]);
 
-  return <AppScreen />;
+  const voiceOrchestrator = useMemo(() => {
+    if (!runtime) return null;
+    const o = new VoiceOrchestrator({
+      ws: runtime.ws,
+      callsApi: runtime.callsApi,
+      lookupParticipant: (userId) => lookupParticipantInCache(queryClient, userId),
+      getMeId: () => useAuth.getState().user?.id ?? null,
+    });
+    o.start();
+    return o;
+  }, [runtime, queryClient]);
+
+  useEffect(() => {
+    return () => {
+      voiceOrchestrator?.stop();
+    };
+  }, [voiceOrchestrator]);
+
+  if (!voiceOrchestrator) return <AppScreen />;
+  return (
+    <VoiceOrchestratorContext.Provider value={voiceOrchestrator}>
+      <AppScreen />
+      <CallOverlay />
+    </VoiceOrchestratorContext.Provider>
+  );
 }
