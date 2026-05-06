@@ -21,6 +21,7 @@ import {
   stopStream,
 } from './devices';
 import { useVoicePrefs } from './prefs';
+import { wrapMicWithGain } from './audio-input';
 import { bindPtt, unbindPtt } from './ptt';
 
 interface VoiceOrchestratorDeps {
@@ -47,6 +48,10 @@ export class VoiceOrchestrator {
   private offWs: (() => void) | null = null;
   /** Восстанавливаемое состояние mute, чтобы un-deafen возвращал mic в исходное. */
   private mutedBeforeDeafen: boolean | null = null;
+  /** Pipeline AudioContext+GainNode для применения inputVolume к mic. */
+  private micGain: { stream: MediaStream; dispose: () => void } | null = null;
+  /** Сырой mic-stream до GainNode — нужен чтобы остановить tracks при teardown. */
+  private micRawStream: MediaStream | null = null;
 
   constructor(private readonly deps: VoiceOrchestratorDeps) {}
 
@@ -316,12 +321,16 @@ export class VoiceOrchestrator {
       this.peer = peer;
 
       const prefs = useVoicePrefs.getState();
-      const stream = await getMicrophoneStream({
+      const rawStream = await getMicrophoneStream({
         noiseSuppression: prefs.noiseSuppression,
         echoCancellation: prefs.echoCancellation,
         autoGainControl: prefs.autoGainControl,
         ...(prefs.inputDeviceId ? { deviceId: prefs.inputDeviceId } : {}),
       });
+      // Прослойка GainNode для inputVolume — реактивно слушает useVoicePrefs.
+      this.micGain = wrapMicWithGain(rawStream);
+      this.micRawStream = rawStream;
+      const stream = this.micGain.stream;
       peer.attachLocalAudio(stream);
       useVoice.getState().setLocalStream(stream);
       this.peerReady = true;
@@ -403,6 +412,12 @@ export class VoiceOrchestrator {
     stopStream(state.localStream);
     stopStream(state.localCameraStream);
     stopStream(state.localScreenStream);
+    // Mic-gain pipeline: dispose ctx + остановить raw mic-tracks (state.localStream
+    // = processed-stream, его tracks мы уже stop-нули; raw — отдельные).
+    this.micGain?.dispose();
+    stopStream(this.micRawStream);
+    this.micGain = null;
+    this.micRawStream = null;
     this.peer?.close();
     this.peer = null;
     this.peerReady = false;

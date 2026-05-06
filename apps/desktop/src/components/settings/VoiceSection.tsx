@@ -151,8 +151,9 @@ export function VoiceSection(): JSX.Element {
         </div>
         <MicTestRow inputDeviceId={prefs.inputDeviceId} />
         <p className="mt-2 text-[11px] text-text-muted">
-          Изменения устройств вступят в силу при следующем подключении к
-          голосовому каналу или звонку.
+          Громкость динамика и микрофона (1:1) применяется сразу. Смена
+          устройства и громкость микрофона в голосовых каналах вступят в силу
+          при следующем подключении.
         </p>
       </section>
 
