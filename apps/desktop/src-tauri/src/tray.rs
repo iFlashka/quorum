@@ -181,6 +181,9 @@ pub fn get_mute_state(state: State<'_, TrayState>) -> bool {
 /// Hook на main-window: закрытие → hide вместо exit.
 pub fn on_main_window_event<R: Runtime>(event: &WindowEvent, window: &tauri::Window<R>) {
     if let WindowEvent::CloseRequested { api, .. } = event {
+        // На macOS клик на красный крестик — традиционно «спрятать», quit идёт
+        // через ⌘Q (тогда Tauri эмитит EventLoopExiting, не CloseRequested).
+        // На Windows/Linux X — то же поведение: трей у нас источник истины.
         api.prevent_close();
         let _ = window.hide();
     }

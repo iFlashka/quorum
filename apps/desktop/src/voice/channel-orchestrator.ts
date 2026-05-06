@@ -116,6 +116,17 @@ export class ChannelVoiceOrchestrator {
     });
   }
 
+  /** Toggle deafen: глушит все remote-audio + автоматически мьютит свой mic. */
+  async toggleDeafen(): Promise<void> {
+    if (!this.room) return;
+    const next = !useChannelVoice.getState().deafened;
+    useChannelVoice.getState().setDeafened(next);
+    this.room.setDeafened(next);
+    if (next) {
+      await this.room.setMuted(true);
+    }
+  }
+
   private async tearDown(): Promise<void> {
     void unbindPtt();
     const channelId = useChannelVoice.getState().channelId;

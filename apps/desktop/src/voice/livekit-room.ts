@@ -103,6 +103,17 @@ export class LivekitRoom {
     useChannelVoice.getState().patchParticipant(myId, { screenTrack: stream });
   }
 
+  /**
+   * Deafen — мьютим все attach'нутые audio-элементы локально. Не делаем
+   * `setSubscribed(false)` потому что это рвёт sub-протокол; локальный
+   * mute достаточен и быстрее реагирует.
+   */
+  setDeafened(deafened: boolean): void {
+    for (const audio of this.attachedAudio.values()) {
+      audio.muted = deafened;
+    }
+  }
+
   async leave(): Promise<void> {
     for (const audio of this.attachedAudio.values()) {
       audio.srcObject = null;

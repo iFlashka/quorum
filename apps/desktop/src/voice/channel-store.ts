@@ -35,12 +35,15 @@ interface ChannelState {
   channelId: string | null;
   guildId: string | null;
   participants: Map<string, ChannelParticipant>;
+  /** True если мы заглушили входящий звук от всех (Discord-style deafen). */
+  deafened: boolean;
   /** Поднятая ошибка цикла join, если была. */
   errorMessage: string | null;
 
   setJoining: (channelId: string, guildId: string) => void;
   setJoined: () => void;
   setLeaving: () => void;
+  setDeafened: (deafened: boolean) => void;
   reset: () => void;
   upsertParticipant: (p: ChannelParticipant) => void;
   removeParticipant: (userId: string) => void;
@@ -56,6 +59,7 @@ const INITIAL = {
   channelId: null,
   guildId: null,
   participants: new Map<string, ChannelParticipant>(),
+  deafened: false,
   errorMessage: null,
 };
 
@@ -66,6 +70,7 @@ export const useChannelVoice = create<ChannelState>((set) => ({
     set({ phase: 'joining', channelId, guildId, errorMessage: null }),
   setJoined: () => set({ phase: 'joined' }),
   setLeaving: () => set({ phase: 'leaving' }),
+  setDeafened: (deafened) => set({ deafened }),
   reset: () => set({ ...INITIAL, participants: new Map() }),
 
   upsertParticipant: (p) =>

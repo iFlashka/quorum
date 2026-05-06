@@ -6,108 +6,95 @@ Self-hosted Discord-аналог для близкого круга (5–10 др
 
 ## Текущий статус
 
-**Фазы 0–6 закрыты** (RNNoise WASM, background blur отложены на фазу 7). Auth (invite-only, refresh-rotation, OS keychain), текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states), presence через Redis Pub/Sub, system tray + close-to-tray, native toast'ы для @mentions с mute-toggle, window-state persistence, autostart, unread-бейдж в трее и в заголовке окна; голосовые звонки 1-на-1 через WebRTC с TURN-relay (наш coturn), push-to-talk и WebRTC-шумодав; групповые голосовые каналы через self-hosted LiveKit SFU.
+**Все 7 фаз закрыты.**
 
-См. полный план фаз в [PROJECT.md](PROJECT.md#план-работы--фазы).
+- Auth (invite-only, refresh-rotation, OS keychain).
+- Текстовый чат с реалтаймом (mentions, reactions, typing, attachments, read-states).
+- Presence через Redis Pub/Sub.
+- System tray + close-to-tray, native toast для @mentions, autostart, unread-бейдж.
+- Голосовые звонки 1:1 на peer-to-peer WebRTC + наш coturn для TURN-relay.
+- Push-to-talk через global-shortcut + WebRTC-шумодав.
+- Голосовые каналы через self-hosted LiveKit SFU.
+- Видео и screenshare для 1:1 (peer-to-peer) и group (LiveKit).
+- Auto-update через `tauri-plugin-updater` с подписью.
+- GitHub Actions: CI на push/PR + release на тег `v*.*.*`.
+- Полноценный Settings screen (account / voice / notifications / about).
+- Production docker-compose с Caddy + Let's Encrypt + ежедневный pg_dump.
 
-### Поведение desktop-клиента
+## Документация
 
-- Закрытие окна (X) сворачивает в трей. Полный выход — пункт «Выйти» в tray-меню.
-- Клик по tray-иконке открывает / фокусирует окно.
-- `Без уведомлений` toggle есть и в tray-меню, и в dropdown-меню юзера — оба зеркалятся.
-- При @mention, если окно не сфокусировано и mute не стоит, прилетает native Windows toast.
-- Бейдж непрочитанных: красная точка на tray-иконке + `Quorum • N` в заголовке (видно в taskbar).
-- Положение/размер окна сохраняется между запусками.
-- `Запускать с системой` → бинарь стартует с `--minimized`, идёт сразу в трей.
+| Документ | Кому |
+|---|---|
+| [docs/deploy.md](docs/deploy.md) | Развернуть сервер на VPS |
+| [docs/release.md](docs/release.md) | Выпустить новую версию клиента |
+| [docs/friends-guide.md](docs/friends-guide.md) | Гайд для подключающегося друга |
+| [docs/decisions/](docs/decisions/) | ADR — почему сделано именно так |
 
-### Голосовые звонки 1-на-1
+## Требования к окружению (для разработки)
 
-- В правой колонке (Members) при наведении на участника появляется кнопка-телефон → исходящий звонок.
-- При входящем — fullscreen-модал с Accept / Decline.
-- В активном звонке снизу появляется панель: имя собеседника, mute, deafen, hangup.
-- В UserCardMenu → «Голос»: режим (`Голосовая активация` / `Push-to-talk`), shortcut PTT (по умолчанию `Shift+Space`), WebRTC-флаги шумодава (все включены по дефолту).
-- Звонить можно только участникам, с которыми есть общая гилда.
-- Если требуется TURN-relay — клиент берёт ephemeral creds через `GET /turn/credentials` (HMAC-SHA1 по RFC). В dev secret лежит в `apps/server/.env::TURN_SHARED_SECRET` (тот же что в `infra/coturn/turnserver.conf::static-auth-secret`).
+- **Node.js 20 LTS+** (см. [.nvmrc](.nvmrc))
+- **pnpm 10.x** (`corepack enable && corepack prepare pnpm@latest --activate`)
+- **Docker Desktop** для локальной инфры (postgres / redis / livekit / coturn)
+- **Rust toolchain** для Tauri (см. https://rustup.rs)
+- На Windows ещё **Microsoft C++ Build Tools** (Visual Studio Installer → "Desktop development with C++")
 
-### Голосовые каналы (LiveKit)
-
-- Voice-канал в ChannelSidebar — клик присоединяет, повторный — выходит.
-- Под voice-каналом виден список подключённых участников; зелёное кольцо вокруг аватара — кто сейчас говорит.
-- Над user-card появляется панель «Голосовой канал» с leave-кнопкой пока ты подключён.
-- Конфликт: если идёт 1-на-1 звонок, voice-канал disabled с подсказкой; и наоборот.
-- LiveKit-секреты в `apps/server/.env::LIVEKIT_API_KEY/SECRET/WS_URL` (совпадают с `infra/livekit/livekit.yaml::keys`).
-
-## Требования к окружению
-
-- **Node.js 20 LTS+** (рекомендуется через nvm-windows / fnm; см. [.nvmrc](.nvmrc))
-- **pnpm 10.x** (включается через `corepack enable && corepack prepare pnpm@latest --activate`)
-- **Docker Desktop** для локальной инфры (postgres/redis/livekit/coturn)
-- **Rust toolchain** для сборки Tauri (только если запускаешь `pnpm dev:desktop`):
-  - Скачать `rustup-init.exe` с https://rustup.rs и поставить (займёт ~2 ГБ).
-  - На Windows нужен ещё **Microsoft C++ Build Tools** (Visual Studio Installer → "Desktop development with C++").
-  - WebView2 уже стоит в Windows 11.
-- **Git** (чтобы коммитить и пушить)
-
-## Быстрый старт (фаза 0)
+## Быстрый старт
 
 ```sh
-# 1. Установить зависимости
 pnpm install
-
-# 2. Поднять инфру
-pnpm infra:up
-
-# 3. Запустить сервер (в одном терминале) — проверка GET http://localhost:4421/health
-pnpm dev:server
-
-# 4. Запустить desktop-клиент (в другом терминале)
-pnpm dev:desktop          # полноценный нативный запуск (нужен Rust)
-pnpm dev:desktop-web      # быстрая отладка фронта в браузере без Rust
+pnpm infra:up                # postgres + redis + livekit + coturn в docker
+pnpm dev:server              # терминал 1: Fastify hot-reload на :4421
+pnpm dev:desktop             # терминал 2: Tauri-окно с hot-reload фронта
 ```
+
+Дефолтный логин в dev: `admin` / `admin123`. Invite-код для регистрации второго аккаунта: `DEVCODE`.
 
 ## Команды
 
 | | |
 |---|---|
-| `pnpm dev:server` | Fastify-сервер с hot-reload (`tsx watch`) |
-| `pnpm dev:desktop` | Tauri dev — нативное окно с hot-reload |
-| `pnpm dev:desktop-web` | только фронт в браузере, без Tauri/Rust |
-| `pnpm build:desktop` | собрать `.msi` инсталлятор (фаза 7 — добавится подпись и updater) |
-| `pnpm build:server` | собрать сервер в `dist/` |
-| `pnpm test` | все vitest-тесты по workspace |
+| `pnpm dev:server` | Fastify с hot-reload (`tsx watch`) |
+| `pnpm dev:desktop` | Tauri dev — нативное окно |
+| `pnpm dev:desktop-web` | Только фронт в браузере (без Tauri-runtime — keychain/tray fallback'ятся) |
+| `pnpm build:server` | Bundle сервера через tsup → `apps/server/dist/` |
+| `pnpm build:desktop` | Сборка `.msi` через `tauri build` (нужен Rust) |
+| `pnpm test` | vitest по всему workspace (server testcontainers + desktop jsdom) |
 | `pnpm lint` / `pnpm lint:fix` | ESLint flat config |
-| `pnpm format` / `pnpm format:check` | Prettier |
 | `pnpm typecheck` | `tsc --noEmit` по всем пакетам |
-| `pnpm infra:up` / `pnpm infra:down` / `pnpm infra:logs` | docker compose в `infra/` |
+| `pnpm infra:up` / `pnpm infra:down` | docker compose в `infra/` |
 
 ## Структура
 
 ```
 quorum/
 ├── apps/
-│   ├── server/          # Node.js + Fastify + WebSocket + Drizzle
-│   └── desktop/         # Tauri 2 + React 18 + Vite
-│       └── src-tauri/   # Rust-обёртка
+│   ├── server/           # Node.js + Fastify + WebSocket + Drizzle
+│   └── desktop/          # Tauri 2 + React 18 + Vite
+│       └── src-tauri/    # Rust (keychain, tray, плагины)
 ├── packages/
-│   └── shared/          # общие типы, Zod-схемы, API-контракты
-├── infra/               # docker-compose, LiveKit, coturn, Caddy
-├── docs/decisions/      # ADR
-├── .claude/memory/      # контекст для AI-ассистента (синкается через git)
-├── PROJECT.md           # спек
-└── CLAUDE.md            # auto-load контекст для Claude Code
+│   └── shared/           # общие типы, Zod-схемы, WS-протокол
+├── infra/
+│   ├── docker-compose.yml          # dev
+│   ├── docker-compose.prod.yml     # prod (Caddy + TLS + secrets)
+│   ├── Caddyfile.prod              # reverse-proxy с auto Let's Encrypt
+│   ├── backup.sh                   # ежедневный pg_dump
+│   └── livekit / coturn            # конфиги
+├── .github/workflows/    # CI + release
+├── docs/
+│   ├── decisions/        # ADR-0001..0008
+│   ├── deploy.md         # как развернуть
+│   ├── release.md        # как выпустить версию
+│   └── friends-guide.md  # для пользователей
+└── .claude/memory/       # контекст для AI (синкается через git)
 ```
-
-## Auto-update (заложено сейчас, реализуется в фазе 7)
-
-Версия `0.0.1` синхронно живёт в [apps/desktop/package.json](apps/desktop/package.json) и [apps/desktop/src-tauri/tauri.conf.json](apps/desktop/src-tauri/tauri.conf.json). В фазе 7 GitHub Actions начнёт собирать `.msi` на каждый тег `v*.*.*`, подписывать его Tauri signer-ключом и публиковать в GitHub Release.
-
-См. [ADR-0002](docs/decisions/0002-auto-update-architecture.md) и [project_auto_update.md](.claude/memory/project_auto_update.md).
 
 ## Безопасность
 
-- Refresh-токены хранятся в OS keychain через Tauri-плагин (фаза 1), не в localStorage.
-- Code signing (`.msi` для Microsoft SmartScreen) **НЕ настроен** — друзья увидят предупреждение «Windows protected your PC» при первой установке. Это приемлемо для пет-проекта.
-- Подпись манифеста updater (Ed25519) — обязательна, настраивается в фазе 7. Приватный ключ **не коммитится** в репо (см. [.gitignore](.gitignore)).
+- Refresh-токены в **OS keychain** (Windows Credential Manager / macOS Keychain / Linux Secret Service) через `keyring-rs`.
+- TURN-credentials выдаются на 1 час (HMAC-SHA1 по RFC TURN REST API draft).
+- LiveKit-токены — JWT на 6 часов с минимальными правами (canPublish + canSubscribe, без admin).
+- Auto-update подпись минизайн-ключом — клиенты не примут не-подписанный update.
+- Code signing для `.msi` пока **не настроен** — друзья увидят «Windows protected your PC» при первой установке. Это приемлемо для пет-проекта.
 
 ## Лицензия
 
