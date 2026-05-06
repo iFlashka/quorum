@@ -59,6 +59,11 @@ export function ChannelSidebar(): JSX.Element {
             </div>
           </div>
         )}
+        {!isLoading && channels.length === 0 && (
+          <p className="px-3 pt-6 text-center text-[13px] text-text-muted">
+            В этой гилде пока нет каналов.
+          </p>
+        )}
         {grouped.text.length > 0 && (
           <CategorySection name="Текстовые каналы" channels={grouped.text} activeId={channelId} onSelect={setChannel} />
         )}

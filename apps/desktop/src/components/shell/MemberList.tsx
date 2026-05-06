@@ -1,4 +1,4 @@
-import { Phone } from 'lucide-react';
+import { Phone, Users } from 'lucide-react';
 import type { PublicMember } from '@quorum/shared';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useRealtime } from '@/realtime/store';
@@ -8,6 +8,7 @@ import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
 import { MemberAvatar } from './MemberAvatar';
 import { Skeleton } from '@/components/Skeleton';
+import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 import { roleColorStyle } from '@/lib/role-color';
 
@@ -61,6 +62,14 @@ export function MemberList(): JSX.Element {
             ))}
           </div>
         </div>
+      )}
+      {!isLoading && members.length === 0 && (
+        <EmptyState
+          icon={Users}
+          title="Никого нет"
+          description="Здесь пока некому быть — пригласи друзей по invite-коду."
+          className="py-10"
+        />
       )}
       {sections.map((section) => (
         <section key={section.key} className="mb-3">

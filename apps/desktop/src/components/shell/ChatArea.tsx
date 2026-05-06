@@ -1,10 +1,11 @@
-import { Bell, Hash, Inbox, Pin, Search, Users, Volume2 } from 'lucide-react';
+import { Bell, Hash, Inbox, MessageSquare, Pin, Search, Users, Volume2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useGuildChannels, useGuildMembers } from '@/hooks/use-guild-data';
 import { useTypersByChannel } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
 import { MessageList } from '@/components/messages/MessageList';
 import { MessageInput } from '@/components/messages/MessageInput';
+import { EmptyState } from '@/components/EmptyState';
 import { useChannelVoice } from '@/voice/channel-store';
 import { VoiceChannelGrid } from '@/components/voice/VoiceChannelGrid';
 import { InlineCallBanner } from '@/components/voice/InlineCallBanner';
@@ -67,7 +68,13 @@ export function ChatArea(): JSX.Element {
 
       <InlineCallBanner />
 
-      {channel?.kind === 'voice' ? (
+      {!channel ? (
+        <EmptyState
+          icon={MessageSquare}
+          title="Выберите канал"
+          description="Канал из боковой панели слева — здесь будут его сообщения."
+        />
+      ) : channel.kind === 'voice' ? (
         <VoiceChannelView channelId={channelId} channelName={channel.name} />
       ) : (
         <>
@@ -77,7 +84,7 @@ export function ChatArea(): JSX.Element {
               {formatTyping(typingNames)}
             </div>
           )}
-          <MessageInput channelName={channel?.name} />
+          <MessageInput channelName={channel.name} />
         </>
       )}
     </main>
@@ -96,11 +103,11 @@ function VoiceChannelView({
 
   if (!isActive) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-text-muted">
-        <Volume2 size={48} strokeWidth={1.5} className="text-text-muted" />
-        <div className="text-[15px]">#{channelName}</div>
-        <div className="text-[13px]">Подключитесь к каналу из левой колонки</div>
-      </div>
+      <EmptyState
+        icon={Volume2}
+        title={`#${channelName}`}
+        description="Кликни по этому каналу в боковой панели слева, чтобы подключиться к голосу."
+      />
     );
   }
 
