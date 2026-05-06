@@ -9,6 +9,7 @@
  */
 
 import type { LivekitApi } from '@/api/livekit';
+import type { WebSocketManager } from '@/realtime/WebSocketManager';
 import { LivekitRoom } from './livekit-room';
 import { useChannelVoice } from './channel-store';
 import { useVoice } from './store';
@@ -17,6 +18,7 @@ import { bindPtt, unbindPtt } from './ptt';
 
 export interface ChannelOrchestratorDeps {
   livekitApi: LivekitApi;
+  ws: WebSocketManager;
   /** userId / displayName / guildId / channelName resolver — берём из auth + cache. */
   getMe: () => { id: string; displayName: string } | null;
 }
@@ -51,6 +53,9 @@ export class ChannelVoiceOrchestrator {
         myUserId: me.id,
         myDisplayName: me.displayName,
       });
+      // Сразу сообщаем серверу что мы зашли — он broadcast'ит остальным
+      // members гилды через `voice.channel.state`.
+      this.deps.ws.send({ t: 'voice.channel.join', channelId });
       useChannelVoice.getState().setJoined();
 
       // PTT — стартовое mute, unmute по нажатию хоткея.
@@ -91,6 +96,10 @@ export class ChannelVoiceOrchestrator {
 
   private async tearDown(): Promise<void> {
     void unbindPtt();
+    const channelId = useChannelVoice.getState().channelId;
+    if (channelId) {
+      this.deps.ws.send({ t: 'voice.channel.leave', channelId });
+    }
     if (this.room) {
       await this.room.leave().catch(() => undefined);
       this.room = null;

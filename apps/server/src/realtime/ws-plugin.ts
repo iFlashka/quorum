@@ -24,6 +24,7 @@ import type { EventBus } from './event-bus.js';
 import type { DbClient } from '../db/client.js';
 import type { PresenceService } from '../modules/presence/service.js';
 import type { CallsService } from '../modules/calls/service.js';
+import type { VoiceChannelMembershipService } from '../modules/voice-channels/service.js';
 import { eq } from 'drizzle-orm';
 import { users } from '../db/schema.js';
 import { randomUUID } from 'node:crypto';
@@ -44,10 +45,11 @@ interface WsPluginOptions {
   db: DbClient;
   presence: PresenceService;
   calls: CallsService;
+  voiceChannels: VoiceChannelMembershipService;
 }
 
 export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
-  const { tokens, guilds, events, db, presence, calls } = opts;
+  const { tokens, guilds, events, db, presence, calls, voiceChannels } = opts;
 
   await app.register(websocket);
 
@@ -156,6 +158,12 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
         case 'call.ice':
           calls.forwardIce(authenticatedUserId, event.callId, event.candidate);
           break;
+        case 'voice.channel.join':
+          void voiceChannels.join(authenticatedUserId, event.channelId);
+          break;
+        case 'voice.channel.leave':
+          voiceChannels.leave(authenticatedUserId, event.channelId);
+          break;
         case 'hello':
           // Уже аутентифицирован — игнорируем повторный hello.
           sendError(socket, 'already_authenticated', 'hello уже принят');
@@ -178,6 +186,8 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
         // Если у юзера был активный звонок — отбиваем его сразу, не ждём
         // peer-side timeout по WebRTC ICE.
         calls.onUserDisconnected(userId);
+        // И из voice-channel'ов выкидываем — иначе призраки.
+        voiceChannels.onUserDisconnected(userId);
       }
     });
 
@@ -240,6 +250,18 @@ export const wsPlugin = fp<WsPluginOptions>(async (app, opts) => {
           guilds: userGuilds,
           presence: initialPresence,
         });
+
+        // Снапшот voice-channel membership: чтобы новый клиент сразу увидел
+        // кто в каких голосовых каналах его гилд.
+        const voiceSnapshot = await voiceChannels.snapshotForUser(userId);
+        for (const entry of voiceSnapshot) {
+          send(socket, {
+            t: 'voice.channel.state',
+            channelId: entry.channelId,
+            guildId: entry.guildId,
+            participantIds: entry.participantIds,
+          });
+        }
       } catch (err) {
         app.log.warn({ err }, 'ws hello failed');
         send(socket, { t: 'auth_failed', reason: 'invalid_access' });

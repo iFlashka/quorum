@@ -34,6 +34,7 @@ import { TurnService } from './modules/turn/service.js';
 import { turnRoutes } from './modules/turn/routes.js';
 import { LivekitService } from './modules/livekit/service.js';
 import { livekitRoutes } from './modules/livekit/routes.js';
+import { VoiceChannelMembershipService } from './modules/voice-channels/service.js';
 import { randomUUID } from 'node:crypto';
 
 export interface BuildAppOptions {
@@ -95,6 +96,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
     apiSecret: config.LIVEKIT_API_SECRET,
     wsUrl: config.LIVEKIT_WS_URL,
   });
+  const voiceChannelsService = new VoiceChannelMembershipService(db, events);
 
   // ---- Плагины ----
   await app.register(sensible);
@@ -139,6 +141,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
     db,
     presence: presenceService,
     calls: callsService,
+    voiceChannels: voiceChannelsService,
   });
 
   // Прокидываем events наружу для тестов.
@@ -148,9 +151,11 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   app.decorate('callsService', callsService);
   app.decorate('turnService', turnService);
   app.decorate('livekitService', livekitService);
+  app.decorate('voiceChannelsService', voiceChannelsService);
 
   app.addHook('onClose', async () => {
     callsService.shutdown();
+    voiceChannelsService.shutdown();
     await presenceService.stop();
     // Если клиенты подсунули снаружи — пусть их и закрывают (тесты).
     if (!redis) await redisClients.close();
@@ -167,5 +172,6 @@ declare module 'fastify' {
     callsService: CallsService;
     turnService: TurnService;
     livekitService: LivekitService;
+    voiceChannelsService: VoiceChannelMembershipService;
   }
 }

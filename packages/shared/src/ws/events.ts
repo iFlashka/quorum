@@ -82,6 +82,17 @@ export const ClientCallIceSchema = z.object({
   candidate: z.string(),
 });
 
+// ---------- Voice-channel membership: client → server ----------
+
+export const ClientVoiceChannelJoinSchema = z.object({
+  t: z.literal('voice.channel.join'),
+  channelId: z.string().uuid(),
+});
+export const ClientVoiceChannelLeaveSchema = z.object({
+  t: z.literal('voice.channel.leave'),
+  channelId: z.string().uuid(),
+});
+
 export const ClientEventSchema = z.discriminatedUnion('t', [
   ClientHelloSchema,
   ClientPingSchema,
@@ -96,6 +107,8 @@ export const ClientEventSchema = z.discriminatedUnion('t', [
   ClientCallOfferSchema,
   ClientCallAnswerSchema,
   ClientCallIceSchema,
+  ClientVoiceChannelJoinSchema,
+  ClientVoiceChannelLeaveSchema,
 ]);
 export type ClientEvent = z.infer<typeof ClientEventSchema>;
 
@@ -210,6 +223,18 @@ export const ServerCallIceSchema = z.object({
   candidate: z.string(),
 });
 
+/**
+ * Снапшот участников голосового канала. Сервер шлёт при каждом изменении
+ * (join/leave) ВСЕМ members гилды, чтобы UI мог нарисовать «кто в Lounge»
+ * даже тем, кто сам не подключён.
+ */
+export const ServerVoiceChannelStateSchema = z.object({
+  t: z.literal('voice.channel.state'),
+  channelId: z.string().uuid(),
+  guildId: z.string().uuid(),
+  participantIds: z.array(z.string().uuid()),
+});
+
 export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerReadySchema,
   ServerAuthFailedSchema,
@@ -229,6 +254,7 @@ export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerCallOfferSchema,
   ServerCallAnswerSchema,
   ServerCallIceSchema,
+  ServerVoiceChannelStateSchema,
   ServerErrorSchema,
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;

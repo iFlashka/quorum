@@ -1,17 +1,27 @@
-import { PhoneOff, Wifi } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Wifi } from 'lucide-react';
+import { useShallow } from 'zustand/shallow';
 import { useChannelVoice } from '@/voice/channel-store';
 import { useChannelVoiceOrchestrator } from '@/voice/channel-context';
+import { useAuth } from '@/auth/store';
+import { cn } from '@/lib/utils';
 
 /**
- * Активный voice-channel summary — сидит над user-card в левой колонке когда
- * мы подключены. Кнопка leave + индикатор «Подключено».
+ * Активный voice-channel summary над user-card. Показывает статус, кнопки
+ * Mute / Leave. Mute-индикатор берётся из `useChannelVoice.participants[meId]`
+ * — обновляется на `RoomEvent.TrackMuted/Unmuted` в LivekitRoom-обёртке.
  */
 export function VoiceChannelBar(): JSX.Element | null {
   const phase = useChannelVoice((s) => s.phase);
   const channelId = useChannelVoice((s) => s.channelId);
+  const meId = useAuth((s) => s.user?.id);
+  const myParticipant = useChannelVoice(
+    useShallow((s) => (meId ? s.participants.get(meId) : undefined)),
+  );
   const orchestrator = useChannelVoiceOrchestrator();
 
   if (phase === 'idle' || !channelId) return null;
+
+  const muted = myParticipant ? !myParticipant.audioEnabled : false;
 
   return (
     <div className="border-t border-bg-default bg-bg-deepest px-2 py-2">
@@ -26,6 +36,20 @@ export function VoiceChannelBar(): JSX.Element | null {
                 : 'Голосовой канал'}
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void orchestrator.toggleMute()}
+          title={muted ? 'Включить микрофон' : 'Выключить микрофон'}
+          disabled={phase !== 'joined'}
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors disabled:opacity-50',
+            muted
+              ? 'bg-accent-danger text-white hover:bg-red-600'
+              : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+          )}
+        >
+          {muted ? <MicOff size={14} /> : <Mic size={14} />}
+        </button>
         <button
           type="button"
           onClick={() => void orchestrator.leave()}

@@ -1,4 +1,4 @@
-import { ChevronDown, Hash, Headphones, Mic, Plus, Volume2 } from 'lucide-react';
+import { ChevronDown, Hash, Mic, MicOff, Plus, Volume2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { PublicChannel } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
@@ -231,15 +231,48 @@ function UserCard(): JSX.Element {
         </div>
       </button>
       <div className="flex shrink-0">
-        <ControlButton aria-label="mute mic">
-          <Mic size={16} strokeWidth={1.75} />
-        </ControlButton>
-        <ControlButton aria-label="deafen">
-          <Headphones size={16} strokeWidth={1.75} />
-        </ControlButton>
+        <GlobalMuteButton />
         <UserCardMenu />
       </div>
     </div>
+  );
+}
+
+/**
+ * Mic-toggle в UserCard. Действует на активный voice-channel (если есть);
+ * для 1:1 mute остаётся в CallOverlay-плашке снизу. Если ни того ни другого —
+ * disabled.
+ */
+function GlobalMuteButton(): JSX.Element {
+  const meId = useAuth((s) => s.user?.id);
+  const channelPhase = useChannelVoice((s) => s.phase);
+  const myInChannel = useChannelVoice((s) =>
+    meId ? s.participants.get(meId) : undefined,
+  );
+  const channelOrchestrator = useChannelVoiceOrchestrator();
+
+  const inChannel = channelPhase === 'joined';
+  const muted = inChannel ? !(myInChannel?.audioEnabled ?? true) : false;
+
+  return (
+    <ControlButton
+      aria-label={muted ? 'unmute mic' : 'mute mic'}
+      title={
+        !inChannel
+          ? 'Подключитесь к голосовому каналу'
+          : muted
+            ? 'Включить микрофон'
+            : 'Выключить микрофон'
+      }
+      disabled={!inChannel}
+      onClick={() => void channelOrchestrator.toggleMute()}
+    >
+      {muted ? (
+        <MicOff size={16} strokeWidth={1.75} className="text-accent-danger" />
+      ) : (
+        <Mic size={16} strokeWidth={1.75} />
+      )}
+    </ControlButton>
   );
 }
 

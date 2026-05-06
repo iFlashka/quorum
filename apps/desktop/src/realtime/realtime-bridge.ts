@@ -22,6 +22,7 @@ import type {
 } from '@quorum/shared';
 import type { WebSocketManager } from './WebSocketManager';
 import { useRealtime } from './store';
+import { useVoiceOccupancy } from '@/voice/occupancy-store';
 
 interface InfinitePages {
   pageParams: unknown[];
@@ -102,6 +103,10 @@ function handleEvent(
       patchMessages(qc, event.channelId, (data) =>
         applyReactionDelta(data, event, -1),
       );
+      return;
+
+    case 'voice.channel.state':
+      useVoiceOccupancy.getState().setChannel(event.channelId, event.participantIds);
       return;
 
     case 'pong':

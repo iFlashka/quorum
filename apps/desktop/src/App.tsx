@@ -220,6 +220,7 @@ function AppScreenWithBridge(): JSX.Element {
     if (!runtime) return null;
     return new ChannelVoiceOrchestrator({
       livekitApi: runtime.livekitApi,
+      ws: runtime.ws,
       getMe: () => {
         const u = useAuth.getState().user;
         if (!u) return null;
