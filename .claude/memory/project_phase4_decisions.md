@@ -59,3 +59,28 @@ Caller (тот кто invite) = offerer. Создаёт offer на `call.accepte
 - TURN-TCP fallback при заблокированном UDP — добавим в фазе 7 на VPS.
 - macOS-специфичный UI (повторяет windows; полировка фаза 7).
 - Recording — никогда без явного запроса.
+- Playwright e2e WebRTC тест с fake-audio devices — отложен на фазу 7 (CI).
+
+## Грабли, на которые наступили при smoke-тесте 1:1 (фикс `e8ab716`)
+
+1. **React StrictMode + useMemo factory** — в dev StrictMode вызывает useMemo
+   factory дважды; если factory имеет side-effect (`o.start()`), создаётся два
+   orchestrator-инстанса, оба subscribed на ws, но в Context попадает только
+   один. Click шёл в Context-instance, peer был в orphan-instance.
+   **Лечение**: useMemo factory должна быть детерминированной (только конструктор);
+   start/stop вынесены в `useEffect` чьи cleanup-ы парятся правильно.
+2. **Race offer↔getUserMedia** — caller успевает отправить `call.offer` до того,
+   как у callee завершилась `getUserMedia` (особенно если permission ещё
+   запрашивается). offer приходил пока `peer` создан, но локального стрима
+   ещё нет → applyOffer создавал ответ без send-track, связь рвалась.
+   **Лечение**: orchestrator кэширует offer в `pendingOffer` пока `peerReady=false`,
+   и применяет сразу после `attachLocalStream`.
+3. **VoicePeer pre-emptive `addTransceiver`** — создавал sendrecv-transceiver
+   до addTrack, что ломало SDP-симметрию с другой стороной. Убрал — addTrack
+   создаёт правильный transceiver автоматически.
+4. **`track.enabled` через `localStream` ненадёжен** — переписал `setMuted` на
+   `pc.getSenders().forEach(s => s.track.enabled = false)`. Это единственный
+   путь, который реально влияет на исходящие пакеты. Дополнительно дублируем
+   на `localStream.getAudioTracks()` для случая если sender ещё не создан.
+5. **Deafen toggle** — un-deafen не возвращал mic в исходное состояние. Теперь
+   запоминаем `mutedBeforeDeafen` и восстанавливаем при undeafen.
