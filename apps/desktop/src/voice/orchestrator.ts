@@ -167,8 +167,15 @@ export class VoiceOrchestrator {
       state.setLocalScreen(null);
     } else {
       try {
-        const stream = await getScreenShareStream();
+        const quality = useVoicePrefs.getState().screenShare;
+        const stream = await getScreenShareStream({
+          width: quality.width,
+          height: quality.height,
+          frameRate: quality.frameRate,
+        });
         this.peer.setScreenStream(stream);
+        // Применяем maxBitrate сразу после addTrack — RTCRtpSender уже создан.
+        void this.peer.applyScreenShareBitrate(quality.bitrateKbps);
         state.setLocalScreen(stream);
         // Если юзер закрыл share через UI Windows — сам track ends → выключаем.
         const track = stream.getVideoTracks()[0];
@@ -182,6 +189,12 @@ export class VoiceOrchestrator {
         state.setError('screen_unavailable');
       }
     }
+  }
+
+  /** Live-смена битрейта 1:1 screen-share (Phase D parallel к group). */
+  async applyScreenShareBitrate(bitrateKbps: number): Promise<boolean> {
+    if (!this.peer) return false;
+    return this.peer.applyScreenShareBitrate(bitrateKbps);
   }
 
   // ---- WS event handling ----

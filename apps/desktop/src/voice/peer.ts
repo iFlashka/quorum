@@ -165,6 +165,29 @@ export class VoicePeer {
     this.notifyStreamsChanged();
   }
 
+  /**
+   * Применить maxBitrate к screen-sender'у через RTCRtpSender.setParameters.
+   * Возвращает true при успехе, false — если sender ещё не создан или браузер
+   * отверг параметры.
+   */
+  async applyScreenShareBitrate(bitrateKbps: number): Promise<boolean> {
+    const sender = this.screenSender;
+    if (!sender) return false;
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) {
+      params.encodings = [{}];
+    }
+    for (const enc of params.encodings) {
+      enc.maxBitrate = bitrateKbps * 1000;
+    }
+    try {
+      await sender.setParameters(params);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Принять map от другой стороны и переклассифицировать pending streams. */
   setRemoteStreamMap(cameraStreamId: string | null, screenStreamId: string | null): void {
     const prevCamera = this.remoteCameraStreamId;

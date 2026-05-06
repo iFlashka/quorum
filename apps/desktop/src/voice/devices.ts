@@ -49,20 +49,36 @@ export async function getCameraStream(opts: CameraOptions = {}): Promise<MediaSt
   return stream;
 }
 
+export interface ScreenShareOptions {
+  /** Целевая ширина (ideal). Браузер может выдать ближайшее. */
+  width?: number;
+  /** Целевая высота (ideal). */
+  height?: number;
+  /** Целевые fps (ideal/max). */
+  frameRate?: number;
+}
+
 /**
  * Получает экран через `getDisplayMedia`. На Windows — открывается system-picker
  * (выбор окна/экрана). По умолчанию — без системного звука.
+ *
+ * Если frameRate ≥ 60 → `contentHint=motion` (оптимизация под видео/игры),
+ * иначе `detail` для UI/текста.
  */
-export async function getScreenShareStream(): Promise<MediaStream> {
+export async function getScreenShareStream(
+  opts: ScreenShareOptions = {},
+): Promise<MediaStream> {
+  const fps = opts.frameRate ?? 30;
   const stream = await navigator.mediaDevices.getDisplayMedia({
     video: {
-      frameRate: { ideal: 30, max: 30 },
+      frameRate: { ideal: fps, max: fps },
+      ...(opts.width ? { width: { ideal: opts.width } } : {}),
+      ...(opts.height ? { height: { ideal: opts.height } } : {}),
     } as MediaTrackConstraints,
     audio: false,
   });
-  // contentHint = 'detail' для текста/UI; 'motion' если игра/видео. По дефолту detail.
   for (const track of stream.getVideoTracks()) {
-    track.contentHint = 'detail';
+    track.contentHint = fps >= 60 ? 'motion' : 'detail';
   }
   return stream;
 }
