@@ -12,6 +12,7 @@ import { useChannelVoiceOrchestrator } from '@/voice/channel-context';
 import { useVoice } from '@/voice/store';
 import { VoiceChannelMembers } from '@/components/voice/VoiceChannelMembers';
 import { VoiceChannelBar } from '@/components/voice/VoiceChannelBar';
+import { CallPlate } from '@/components/voice/CallPlate';
 
 export function ChannelSidebar(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -54,6 +55,7 @@ export function ChannelSidebar(): JSX.Element {
         )}
       </nav>
 
+      <CallPlate />
       <VoiceChannelBar />
       <UserCard />
     </aside>

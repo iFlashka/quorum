@@ -25,11 +25,11 @@ const PHASE_LABEL: Record<Exclude<CallPhase, 'idle'>, string> = {
 };
 
 /**
- * Overlay для всех состояний 1:1 звонка. Layouts:
+ * Overlay для тех состояний 1:1 звонка, что НЕ умещаются в sidebar-плашке:
  *   - ringing → fullscreen modal с Accept/Decline.
- *   - calling/connecting/active без видео → компактная плашка снизу-по-центру.
- *   - active с видео → fullscreen video view с picture-in-picture для local
- *     camera + control bar внизу.
+ *   - active с видео/screenshare → fullscreen video view + control bar.
+ *
+ * Audio-only mini-режим живёт в `CallPlate` внутри ChannelSidebar (Discord-style).
  */
 export function CallOverlay(): JSX.Element | null {
   const phase = useVoice((s) => s.phase);
@@ -153,64 +153,11 @@ export function CallOverlay(): JSX.Element | null {
     );
   }
 
-  // Active без видео — компактная плашка снизу.
+  // Audio-only режим живёт в CallPlate внутри ChannelSidebar — overlay
+  // нужен только для ringing-modal'а и fullscreen-video. В audio-mini рендерим
+  // невидимый audio-tag, чтобы remoteStream проигрывался.
   return (
-    <div className="fixed bottom-3 left-1/2 z-50 -translate-x-1/2">
-      <div className="flex items-center gap-3 rounded-xl bg-bg-elevated px-4 py-3 shadow-elevated">
-        <PeerAvatar initials={initials} size={40} />
-        <div className="min-w-[160px]">
-          <div className="truncate text-[14px] font-semibold text-text-primary">
-            {peerName}
-          </div>
-          <div className="text-[12px] text-text-muted">
-            {PHASE_LABEL[phase]} {connectionStateLabel(connectionState, phase)}
-          </div>
-        </div>
-        <div className="ml-2 flex items-center gap-1.5">
-          <CircleButton
-            title={muted ? 'Включить микрофон' : 'Выключить микрофон'}
-            active={muted}
-            onClick={() => orchestrator.toggleMute()}
-            disabled={phase !== 'active' && phase !== 'connecting'}
-          >
-            {muted ? <MicOff size={16} /> : <Mic size={16} />}
-          </CircleButton>
-          <CircleButton
-            title={deafened ? 'Включить звук' : 'Выключить звук'}
-            active={deafened}
-            onClick={() => orchestrator.toggleDeafen()}
-            disabled={phase !== 'active' && phase !== 'connecting'}
-          >
-            {deafened ? <HeadphoneOff size={16} /> : <Headphones size={16} />}
-          </CircleButton>
-          <CircleButton
-            title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
-            active={cameraOn}
-            onClick={() => void orchestrator.toggleCamera()}
-            disabled={phase !== 'active'}
-          >
-            {cameraOn ? <Video size={16} /> : <VideoOff size={16} />}
-          </CircleButton>
-          <CircleButton
-            title={screenOn ? 'Остановить трансляцию' : 'Транслировать экран'}
-            active={screenOn}
-            onClick={() => void orchestrator.toggleScreenShare()}
-            disabled={phase !== 'active'}
-          >
-            {screenOn ? <MonitorOff size={16} /> : <Monitor size={16} />}
-          </CircleButton>
-          <button
-            type="button"
-            onClick={() => orchestrator.hangup()}
-            title="Завершить"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-danger text-white transition-colors hover:bg-red-600"
-          >
-            <PhoneOff size={16} />
-          </button>
-        </div>
-      </div>
-      <audio ref={audioRef} autoPlay hidden />
-    </div>
+    <audio ref={audioRef} autoPlay hidden />
   );
 }
 
