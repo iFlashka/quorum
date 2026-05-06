@@ -11,10 +11,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Phone } from 'lucide-react';
+import { MessageCircle, Phone } from 'lucide-react';
 import type { PublicMember, UserStatus } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useRuntime } from '@/auth/runtime-store';
+import { useOpenDm } from '@/hooks/use-dm';
+import { useSelection } from '@/state/selection';
 import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
 import { cn } from '@/lib/utils';
@@ -248,7 +250,12 @@ function MemberPopover({ user, member, anchorRef, onClose }: MemberPopoverProps)
           </div>
         )}
 
-        {!isMe && <CallButton userId={user.userId} status={status} onAction={onClose} />}
+        {!isMe && (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <MessageButton userId={user.userId} onAction={onClose} />
+            <CallButton userId={user.userId} status={status} onAction={onClose} />
+          </div>
+        )}
       </div>
     </div>,
     document.body,
@@ -293,7 +300,7 @@ function CallButton({ userId, status, onAction }: CallButtonProps): JSX.Element 
         onAction();
       }}
       className={cn(
-        'mt-3 flex w-full items-center justify-center gap-2 rounded-md py-2 text-[14px] font-medium transition-colors',
+        'flex w-full items-center justify-center gap-2 rounded-md py-2 text-[14px] font-medium transition-colors',
         disabled
           ? 'cursor-not-allowed bg-bg-default text-text-muted'
           : 'bg-accent-primary text-white hover:bg-accent-hover',
@@ -302,6 +309,49 @@ function CallButton({ userId, status, onAction }: CallButtonProps): JSX.Element 
     >
       <Phone size={16} strokeWidth={2} />
       Позвонить
+    </button>
+  );
+}
+
+/**
+ * «Написать сообщение» — открывает или создаёт DM с peer'ом и переключает
+ * UI в DM-режим с этим каналом активным.
+ */
+function MessageButton({
+  userId,
+  onAction,
+}: {
+  userId: string;
+  onAction: () => void;
+}): JSX.Element {
+  const openDm = useOpenDm();
+  const setHome = useSelection((s) => s.setHome);
+  const setDmChannel = useSelection((s) => s.setDmChannel);
+
+  const onClick = (): void => {
+    openDm.mutate(userId, {
+      onSuccess: (res) => {
+        setHome();
+        setDmChannel(res.channel.id);
+        onAction();
+      },
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={openDm.isPending}
+      className={cn(
+        'flex w-full items-center justify-center gap-2 rounded-md py-2 text-[14px] font-medium transition-colors',
+        openDm.isPending
+          ? 'cursor-not-allowed bg-bg-default text-text-muted'
+          : 'bg-bg-default text-text-primary hover:bg-bg-hover',
+      )}
+    >
+      <MessageCircle size={16} strokeWidth={2} />
+      Написать сообщение
     </button>
   );
 }

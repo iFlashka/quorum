@@ -12,9 +12,11 @@
  *   - ready                               → setManyPresence + чистка typing
  */
 
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, InfiniteData } from '@tanstack/react-query';
 import type {
+  ListDmMessagesResponse,
   ListMessagesResponse,
+  PublicDmMessage,
   PublicMessage,
   ServerEvent,
   ServerReactionAdd,
@@ -109,11 +111,83 @@ function handleEvent(
       useVoiceOccupancy.getState().setChannel(event.channelId, event.participantIds);
       return;
 
+    case 'dm.message.create':
+      patchDmMessages(qc, event.message.dmChannelId, (data) =>
+        upsertDmAtTail(data, event.message),
+      );
+      // dm-list-кеш меняется (last-message preview) — invalidate.
+      void qc.invalidateQueries({ queryKey: ['dm-list'] });
+      return;
+
+    case 'dm.message.update':
+      patchDmMessages(qc, event.message.dmChannelId, (data) =>
+        replaceDm(data, event.message),
+      );
+      return;
+
+    case 'dm.message.delete':
+      patchDmMessages(qc, event.dmChannelId, (data) =>
+        removeDm(data, event.messageId),
+      );
+      return;
+
     case 'pong':
     case 'auth_failed':
     case 'error':
       return;
   }
+}
+
+type DmInfinitePages = InfiniteData<ListDmMessagesResponse>;
+
+function patchDmMessages(
+  qc: QueryClient,
+  dmChannelId: string,
+  patch: (data: DmInfinitePages) => DmInfinitePages,
+): void {
+  qc.setQueryData<InfiniteData<ListDmMessagesResponse>>(
+    ['dm-messages', dmChannelId],
+    (prev) => {
+      if (!prev) return prev;
+      return patch(prev);
+    },
+  );
+}
+
+function upsertDmAtTail(data: DmInfinitePages, msg: PublicDmMessage): DmInfinitePages {
+  if (data.pages.length === 0) {
+    return { ...data, pages: [{ messages: [msg], hasMore: false }] };
+  }
+  for (const page of data.pages) {
+    if (page.messages.some((m) => m.id === msg.id)) {
+      return replaceDm(data, msg);
+    }
+  }
+  const lastIdx = data.pages.length - 1;
+  const lastPage = data.pages[lastIdx]!;
+  const nextPages = [...data.pages];
+  nextPages[lastIdx] = { ...lastPage, messages: [...lastPage.messages, msg] };
+  return { ...data, pages: nextPages };
+}
+
+function replaceDm(data: DmInfinitePages, msg: PublicDmMessage): DmInfinitePages {
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      messages: page.messages.map((m) => (m.id === msg.id ? msg : m)),
+    })),
+  };
+}
+
+function removeDm(data: DmInfinitePages, messageId: string): DmInfinitePages {
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      messages: page.messages.filter((m) => m.id !== messageId),
+    })),
+  };
 }
 
 /** Поиск имени канала по id в кеше TanStack Query (`['channels', guildId]`). */

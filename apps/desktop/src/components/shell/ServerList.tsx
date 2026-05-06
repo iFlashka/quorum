@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { MessageCircle, Plus } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ListChannelsResponse, PublicGuild } from '@quorum/shared';
@@ -12,17 +12,19 @@ import { cn } from '@/lib/utils';
 export function ServerList(): JSX.Element {
   const { data, isLoading } = useGuilds();
   const guilds = useMemo(() => data?.guilds ?? [], [data]);
+  const mode = useSelection((s) => s.mode);
   const activeGuildId = useSelection((s) => s.guildId);
   const setGuild = useSelection((s) => s.setGuild);
+  const setHome = useSelection((s) => s.setHome);
   const guildsApi = useRuntime((s) => s.runtime?.guildsApi);
   const queryClient = useQueryClient();
 
-  // Авто-выбор первой гилды как только данные приехали.
+  // Авто-выбор первой гилды только если ни Home, ни гилда ещё не выбраны.
   useEffect(() => {
-    if (!activeGuildId && guilds.length > 0) {
+    if (mode === 'guild' && !activeGuildId && guilds.length > 0) {
       setGuild(guilds[0]!.id);
     }
-  }, [activeGuildId, guilds, setGuild]);
+  }, [mode, activeGuildId, guilds, setGuild]);
 
   // Prefetch каналы для всех неактивных гилд — нужно чтобы unread/mention
   // индикаторы на ServerList работали без открытия гилды.
@@ -39,6 +41,8 @@ export function ServerList(): JSX.Element {
 
   return (
     <nav className="flex w-[72px] shrink-0 flex-col items-center gap-2 bg-bg-deepest pt-3 pb-3">
+      <HomeIcon active={mode === 'dm'} onClick={() => setHome()} />
+      <div className="my-1 h-0.5 w-8 rounded-full bg-border-subtle" />
       {isLoading && guilds.length === 0 && (
         <>
           <Skeleton className="h-12 w-12 rounded-3xl" />
@@ -50,7 +54,7 @@ export function ServerList(): JSX.Element {
         <ServerIcon
           key={g.id}
           guild={g}
-          active={g.id === activeGuildId}
+          active={mode === 'guild' && g.id === activeGuildId}
           onClick={() => setGuild(g.id)}
         />
       ))}
@@ -64,6 +68,36 @@ export function ServerList(): JSX.Element {
         <Plus size={22} strokeWidth={2.5} />
       </button>
     </nav>
+  );
+}
+
+/**
+ * Discord-style «Home» — круглая иконка вверху ServerList ведёт на DM-режим.
+ * Выглядит как обычная server-icon, но с иконкой MessageCircle внутри.
+ */
+function HomeIcon({ active, onClick }: { active: boolean; onClick: () => void }): JSX.Element {
+  return (
+    <div className="group relative">
+      <span
+        className={cn(
+          'absolute -left-3 top-1/2 w-1 -translate-y-1/2 rounded-r-full bg-text-primary transition-all duration-200',
+          active ? 'h-10' : 'h-2 scale-y-0 group-hover:h-5 group-hover:scale-y-100',
+        )}
+      />
+      <button
+        type="button"
+        onClick={onClick}
+        title="Личные сообщения"
+        className={cn(
+          'flex h-12 w-12 items-center justify-center transition-all duration-200',
+          active
+            ? 'rounded-2xl bg-accent-primary text-white'
+            : 'rounded-3xl bg-bg-default text-accent-primary hover:rounded-2xl hover:bg-accent-primary hover:text-white',
+        )}
+      >
+        <MessageCircle size={22} strokeWidth={2} />
+      </button>
+    </div>
   );
 }
 
