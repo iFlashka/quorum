@@ -15,6 +15,7 @@
 import { z } from 'zod';
 import { PublicGuildSchema, PrivateUserSchema, UserStatusSchema } from '../domain/user.js';
 import { PublicMessageSchema } from '../domain/message.js';
+import { PublicDmMessageSchema } from '../domain/dm.js';
 
 // ---------- Client → Server ----------
 
@@ -255,6 +256,24 @@ export const ServerVoiceChannelStateSchema = z.object({
   participantIds: z.array(z.string().uuid()),
 });
 
+// ---------- DM events ----------
+
+export const ServerDmMessageCreateSchema = z.object({
+  t: z.literal('dm.message.create'),
+  message: PublicDmMessageSchema,
+});
+
+export const ServerDmMessageUpdateSchema = z.object({
+  t: z.literal('dm.message.update'),
+  message: PublicDmMessageSchema,
+});
+
+export const ServerDmMessageDeleteSchema = z.object({
+  t: z.literal('dm.message.delete'),
+  dmChannelId: z.string().uuid(),
+  messageId: z.string().uuid(),
+});
+
 export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerReadySchema,
   ServerAuthFailedSchema,
@@ -276,6 +295,9 @@ export const ServerEventSchema = z.discriminatedUnion('t', [
   ServerCallIceSchema,
   ServerCallMediaSchema,
   ServerVoiceChannelStateSchema,
+  ServerDmMessageCreateSchema,
+  ServerDmMessageUpdateSchema,
+  ServerDmMessageDeleteSchema,
   ServerErrorSchema,
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
@@ -285,6 +307,9 @@ export type ServerReady = z.infer<typeof ServerReadySchema>;
 export type ServerMessageCreate = z.infer<typeof ServerMessageCreateSchema>;
 export type ServerMessageUpdate = z.infer<typeof ServerMessageUpdateSchema>;
 export type ServerMessageDelete = z.infer<typeof ServerMessageDeleteSchema>;
+export type ServerDmMessageCreate = z.infer<typeof ServerDmMessageCreateSchema>;
+export type ServerDmMessageUpdate = z.infer<typeof ServerDmMessageUpdateSchema>;
+export type ServerDmMessageDelete = z.infer<typeof ServerDmMessageDeleteSchema>;
 export type ServerReactionAdd = z.infer<typeof ServerReactionAddSchema>;
 export type ServerReactionRemove = z.infer<typeof ServerReactionRemoveSchema>;
 export type ServerTyping = z.infer<typeof ServerTypingSchema>;

@@ -365,6 +365,12 @@ export class MessagesService {
             deleted: true,
           };
       }
+      // hydrateMessages обслуживает только guild-channel сообщения. DM
+      // обрабатывает DmMessagesService с собственным hydrate, поэтому
+      // channelId здесь обязан быть непустым.
+      if (!row.channelId) {
+        throw new Error(`hydrateMessages_received_dm_row:${row.id}`);
+      }
       return {
         id: row.id,
         channelId: row.channelId,

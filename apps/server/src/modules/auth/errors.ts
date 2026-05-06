@@ -6,7 +6,9 @@ export type AuthErrorCode =
   | 'invite_expired'
   | 'refresh_invalid'
   | 'refresh_replay'
-  | 'unauthorized';
+  | 'unauthorized'
+  | 'forbidden'
+  | 'not_found';
 
 export class AuthError extends Error {
   readonly code: AuthErrorCode;
@@ -29,4 +31,6 @@ const STATUS_BY_CODE: Record<AuthErrorCode, number> = {
   refresh_invalid: 401,
   refresh_replay: 401,
   unauthorized: 401,
+  forbidden: 403,
+  not_found: 404,
 };

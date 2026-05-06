@@ -26,6 +26,8 @@ import { AvatarsService } from './modules/avatars/service.js';
 import { avatarRoutes } from './modules/avatars/routes.js';
 import { UnfurlService } from './modules/unfurl/service.js';
 import { unfurlRoutes } from './modules/unfurl/routes.js';
+import { DmChannelsService } from './modules/dm/service.js';
+import { dmRoutes } from './modules/dm/routes.js';
 import { LocalStorage } from './storage/index.js';
 import { EventBus } from './realtime/event-bus.js';
 import { wsPlugin } from './realtime/ws-plugin.js';
@@ -78,6 +80,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   const attachmentsService = new AttachmentsService(db, storage);
   const avatarsService = new AvatarsService(db, storage);
   const unfurlService = new UnfurlService();
+  const dmChannelsService = new DmChannelsService(db);
   const events = new EventBus();
 
   const redisClients = redis ?? createRedisClients(config.REDIS_URL);
@@ -138,6 +141,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   await app.register(attachmentRoutes({ service: attachmentsService }));
   await app.register(avatarRoutes({ service: avatarsService }));
   await app.register(unfurlRoutes({ service: unfurlService }));
+  await app.register(dmRoutes({ service: dmChannelsService, events }));
   await app.register(turnRoutes({ service: turnService }));
   await app.register(livekitRoutes({ service: livekitService, messages: messagesService, db }));
 

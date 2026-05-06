@@ -119,13 +119,47 @@ export const refreshTokens = pgTable(
   ],
 );
 
+/**
+ * 1:1 личные сообщения (DM). user_a_id < user_b_id канонически чтобы пара
+ * была уникальной — UNIQUE-индекс на (user_a, user_b) гарантирует один
+ * DM-канал на пару пользователей.
+ */
+export const dmChannels = pgTable(
+  'dm_channels',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userAId: uuid('user_a_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    userBId: uuid('user_b_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('dm_channels_pair_key').on(t.userAId, t.userBId),
+    index('dm_channels_user_a_idx').on(t.userAId),
+    index('dm_channels_user_b_idx').on(t.userBId),
+  ],
+);
+
 export const messages = pgTable(
   'messages',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    channelId: uuid('channel_id')
-      .notNull()
-      .references(() => channels.id, { onDelete: 'cascade' }),
+    /**
+     * Канал-гилды. NULL когда сообщение — DM (тогда `dmChannelId` непустой).
+     * Ровно одно из (channelId, dmChannelId) должно быть заполнено —
+     * проверяется CHECK-constraint'ом в миграции.
+     */
+    channelId: uuid('channel_id').references(() => channels.id, {
+      onDelete: 'cascade',
+    }),
+    /** DM-канал. NULL для гилд-сообщений. */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forward-ref на dmChannels
+    dmChannelId: uuid('dm_channel_id').references((): any => dmChannels.id, {
+      onDelete: 'cascade',
+    }),
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
@@ -139,6 +173,7 @@ export const messages = pgTable(
   },
   (t) => [
     index('messages_channel_created_idx').on(t.channelId, t.createdAt.desc()),
+    index('messages_dm_channel_created_idx').on(t.dmChannelId, t.createdAt.desc()),
     index('messages_author_idx').on(t.authorId),
   ],
 );
@@ -250,6 +285,10 @@ export const channelsRelations = relations(channels, ({ one, many }) => ({
 
 export const messagesRelations = relations(messages, ({ one, many }) => ({
   channel: one(channels, { fields: [messages.channelId], references: [channels.id] }),
+  dmChannel: one(dmChannels, {
+    fields: [messages.dmChannelId],
+    references: [dmChannels.id],
+  }),
   author: one(users, { fields: [messages.authorId], references: [users.id] }),
   replyTo: one(messages, {
     fields: [messages.replyToMessageId],
@@ -259,6 +298,12 @@ export const messagesRelations = relations(messages, ({ one, many }) => ({
   attachments: many(attachments),
   reactions: many(reactions),
   mentions: many(mentions),
+}));
+
+export const dmChannelsRelations = relations(dmChannels, ({ one, many }) => ({
+  userA: one(users, { fields: [dmChannels.userAId], references: [users.id] }),
+  userB: one(users, { fields: [dmChannels.userBId], references: [users.id] }),
+  messages: many(messages),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
