@@ -28,6 +28,7 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
   const reactMut = useToggleReaction(channelId);
 
   const isMine = me?.id === message.author.id;
+  const mentionsMe = !!me && message.mentionedUserIds.includes(me.id);
 
   const submitEdit = (): void => {
     if (!draft.trim() || draft === message.content) {
@@ -53,6 +54,8 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
       className={cn(
         'group relative flex gap-4 px-4 transition-colors hover:bg-bg-elevated',
         grouped ? 'mt-0 py-[2px]' : 'mt-[17px] pt-[2px] pb-[2px]',
+        mentionsMe &&
+          'bg-[rgba(250,166,26,0.06)] before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-[#faa61a] hover:bg-[rgba(250,166,26,0.10)]',
       )}
     >
       {grouped ? (

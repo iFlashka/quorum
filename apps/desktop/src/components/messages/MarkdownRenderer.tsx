@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { PublicMember } from '@quorum/shared';
+import { useAuth } from '@/auth/store';
 import { renderMarkdown } from '@/lib/markdown/render';
 
 interface MarkdownRendererProps {
@@ -9,7 +10,8 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content, userById }: MarkdownRendererProps): JSX.Element {
-  const html = useMemo(() => renderMarkdown(content, userById), [content, userById]);
+  const meId = useAuth((s) => s.user?.id);
+  const html = useMemo(() => renderMarkdown(content, userById, meId), [content, userById, meId]);
 
   return (
     <div
