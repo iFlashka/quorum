@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, Info, Mic, Pencil, Search, User, X } from 'lucide-react';
 import { useAuth } from '@/auth/store';
+import { useRuntime } from '@/auth/runtime-store';
 import { useSettings, type SettingsSection } from '@/state/settings-store';
 import { AccountSection } from './AccountSection';
 import { VoiceSection } from './VoiceSection';
@@ -170,6 +171,8 @@ function ProfileCard({ onClick }: { onClick: () => void }): JSX.Element {
   const user = useAuth((s) => s.user);
   const displayName = user?.displayName ?? user?.username ?? 'You';
   const initials = avatarInitials(displayName);
+  const avatarsApi = useRuntime((s) => s.runtime?.avatarsApi);
+  const imgUrl = avatarsApi ? avatarsApi.resolveUrl(user?.avatarUrl ?? null) : null;
   return (
     <button
       type="button"
@@ -177,8 +180,12 @@ function ProfileCard({ onClick }: { onClick: () => void }): JSX.Element {
       className="group flex w-full items-center gap-2 rounded-md bg-bg-default/40 px-2 py-2 text-left transition-colors hover:bg-bg-default/70"
       title="Редактировать профиль"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[14px] font-semibold text-white">
-        {initials}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-primary text-[14px] font-semibold text-white">
+        {imgUrl ? (
+          <img src={imgUrl} alt="avatar" className="h-full w-full object-cover" />
+        ) : (
+          initials
+        )}
       </div>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-[14px] font-semibold text-text-primary">

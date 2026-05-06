@@ -22,6 +22,8 @@ import { ReadStatesService } from './modules/read-states/service.js';
 import { readStateRoutes } from './modules/read-states/routes.js';
 import { AttachmentsService } from './modules/attachments/service.js';
 import { attachmentRoutes } from './modules/attachments/routes.js';
+import { AvatarsService } from './modules/avatars/service.js';
+import { avatarRoutes } from './modules/avatars/routes.js';
 import { LocalStorage } from './storage/index.js';
 import { EventBus } from './realtime/event-bus.js';
 import { wsPlugin } from './realtime/ws-plugin.js';
@@ -72,6 +74,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   const readStatesService = new ReadStatesService(db, messagesService);
   const storage = new LocalStorage(resolvePath(process.cwd(), config.UPLOADS_DIR));
   const attachmentsService = new AttachmentsService(db, storage);
+  const avatarsService = new AvatarsService(db, storage);
   const events = new EventBus();
 
   const redisClients = redis ?? createRedisClients(config.REDIS_URL);
@@ -130,6 +133,7 @@ export async function buildApp({ config, db, redis }: BuildAppOptions): Promise<
   await app.register(reactionRoutes({ service: reactionsService, events }));
   await app.register(readStateRoutes({ service: readStatesService }));
   await app.register(attachmentRoutes({ service: attachmentsService }));
+  await app.register(avatarRoutes({ service: avatarsService }));
   await app.register(turnRoutes({ service: turnService }));
   await app.register(livekitRoutes({ service: livekitService, messages: messagesService, db }));
 

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Check, Upload } from 'lucide-react';
 import type { UserStatus } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useRuntime } from '@/auth/runtime-store';
@@ -104,9 +104,7 @@ export function AccountSection(): JSX.Element {
         <h3 className="mb-2 text-[12px] font-semibold tracking-wide text-text-muted uppercase">
           Аватар
         </h3>
-        <p className="text-[13px] text-text-muted">
-          Загрузка аватарок появится в одном из следующих обновлений.
-        </p>
+        <AvatarUploader />
       </section>
 
       <div className="flex items-center gap-3">
@@ -125,4 +123,129 @@ export function AccountSection(): JSX.Element {
       </div>
     </div>
   );
+}
+
+/**
+ * Загрузка аватара. Алгоритм:
+ *   1. Юзер выбирает image (png/jpeg/webp/gif).
+ *   2. Через canvas даунскейлим до 256×256 (centered cover-crop).
+ *   3. canvas.toBlob('image/webp', 0.85) → POST /me/avatar.
+ *   4. После успеха — обновляем useAuth.user.avatarUrl, чтобы аватары
+ *      везде сразу подменились (MemberAvatar реактивно перерендерит).
+ */
+function AvatarUploader(): JSX.Element {
+  const user = useAuth((s) => s.user);
+  const runtime = useRuntime((s) => s.runtime);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  const initials = avatarInitials(user?.displayName ?? user?.username ?? '?');
+  const remoteUrl = runtime?.avatarsApi.resolveUrl(user?.avatarUrl) ?? null;
+  const showImage = preview ?? remoteUrl;
+
+  const onPick = async (file: File): Promise<void> => {
+    if (!runtime || !user) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const blob = await downscaleToWebp(file, 256, 0.85);
+      // Локальный preview сразу — UX мгновенный.
+      setPreview(URL.createObjectURL(blob));
+      const res = await runtime.avatarsApi.upload(blob);
+      // Cache-bust: добавляем `?v=timestamp` чтобы обойти кеш предыдущего
+      // относительного URL (он совпадает по path при перезагрузке аватара).
+      const bust = `${res.avatarUrl}?v=${Date.now()}`;
+      useAuth.setState({ user: { ...user, avatarUrl: bust } });
+    } catch (e) {
+      setErr(
+        e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Не удалось загрузить',
+      );
+      setPreview(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-accent-primary text-[28px] font-semibold text-white">
+        {showImage ? (
+          <img src={showImage} alt="avatar" className="h-full w-full object-cover" />
+        ) : (
+          initials
+        )}
+      </div>
+      <div className="flex-1">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void onPick(f);
+            // Сбрасываем чтобы можно было повторно выбрать тот же файл.
+            e.target.value = '';
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="flex items-center gap-2 rounded-md bg-accent-primary px-3 py-2 text-[13px] font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+        >
+          <Upload size={14} />
+          {busy ? 'Загружаем…' : 'Загрузить аватар'}
+        </button>
+        <p className="mt-2 text-[12px] text-text-muted">
+          PNG/JPEG/WebP/GIF до 1 МБ. Картинка обрежется до квадрата и пережмётся в 256×256 WebP.
+        </p>
+        {err && <p className="mt-1 text-[12px] text-accent-danger">{err}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Даунскейл изображения в square cover-crop через offscreen canvas. */
+async function downscaleToWebp(file: File, size: number, quality: number): Promise<Blob> {
+  const img = await loadImage(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas_unavailable');
+  // Квадратный crop из центра исходной картинки.
+  const minSide = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - minSide) / 2;
+  const sy = (img.naturalHeight - minSide) / 2;
+  ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) reject(new Error('toBlob_failed'));
+        else resolve(blob);
+      },
+      'image/webp',
+      quality,
+    );
+  });
+}
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image_load_failed'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function avatarInitials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '?';
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
 }

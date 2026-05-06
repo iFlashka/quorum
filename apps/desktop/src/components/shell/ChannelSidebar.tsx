@@ -2,6 +2,7 @@ import { ChevronDown, Hash, Mic, MicOff, Plus, Volume2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { PublicChannel } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
+import { useRuntime } from '@/auth/runtime-store';
 import { useGuilds, useGuildChannels } from '@/hooks/use-guild-data';
 import { useChannelHasUnread } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
@@ -229,6 +230,8 @@ function UserCard(): JSX.Element {
   const user = useAuth((s) => s.user);
   const displayName = user?.displayName ?? user?.username ?? 'You';
   const initials = avatarInitials(displayName);
+  const avatarsApi = useRuntime((s) => s.runtime?.avatarsApi);
+  const imgUrl = avatarsApi ? avatarsApi.resolveUrl(user?.avatarUrl ?? null) : null;
 
   // Динамический статус: 1:1 звонок > voice channel > online.
   const callPhase = useVoice((s) => s.phase);
@@ -255,8 +258,12 @@ function UserCard(): JSX.Element {
         className="flex flex-1 items-center gap-2 overflow-hidden rounded px-1 py-1 text-left hover:bg-bg-hover"
       >
         <div className="relative shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-[13px] font-semibold text-white">
-            {initials}
+          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-accent-primary text-[13px] font-semibold text-white">
+            {imgUrl ? (
+              <img src={imgUrl} alt="avatar" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <span className="absolute -right-0.5 -bottom-0.5 h-[14px] w-[14px] rounded-full border-[2px] border-bg-deepest bg-accent-success" />
         </div>

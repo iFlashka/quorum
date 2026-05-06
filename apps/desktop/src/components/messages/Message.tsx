@@ -77,6 +77,7 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
             userId: message.author.id,
             username: message.author.username,
             displayName: message.author.displayName,
+            avatarUrl: message.author.avatarUrl,
           }}
           member={userById.get(message.author.id)}
           size={40}

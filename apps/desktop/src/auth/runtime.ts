@@ -6,6 +6,7 @@
 
 import { ApiClient } from '@/api/client';
 import { makeAttachmentsApi, type AttachmentsApi } from '@/api/attachments';
+import { makeAvatarsApi, type AvatarsApi } from '@/api/avatars';
 import { makeCallsApi, type CallsApi } from '@/api/calls';
 import { makeGuildsApi, type GuildsApi } from '@/api/guilds';
 import { makeLivekitApi, type LivekitApi } from '@/api/livekit';
@@ -23,6 +24,7 @@ export interface AppRuntime {
   guildsApi: GuildsApi;
   messagesApi: MessagesApi;
   attachmentsApi: AttachmentsApi;
+  avatarsApi: AvatarsApi;
   callsApi: CallsApi;
   livekitApi: LivekitApi;
   ws: WebSocketManager;
@@ -78,6 +80,7 @@ export function createAppRuntime(serverUrl: string): AppRuntime {
     guildsApi: makeGuildsApi(api),
     messagesApi: makeMessagesApi(api),
     attachmentsApi: makeAttachmentsApi(api, serverUrl),
+    avatarsApi: makeAvatarsApi(api, serverUrl),
     callsApi: makeCallsApi(api),
     livekitApi: makeLivekitApi(api),
     ws,

@@ -85,7 +85,12 @@ export function VoiceChannelMembers({ channelId }: VoiceChannelMembersProps): JS
             )}
           >
             <MemberAvatar
-              user={{ userId: p.userId, username: p.username, displayName: p.name }}
+              user={{
+                userId: p.userId,
+                username: p.username,
+                displayName: p.name,
+                avatarUrl: p.member?.avatarUrl,
+              }}
               member={p.member}
               size={24}
               ringColor="bg-darker"

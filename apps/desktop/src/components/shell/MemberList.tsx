@@ -153,6 +153,7 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
           userId: member.userId,
           username: member.username,
           displayName: member.displayName,
+          avatarUrl: member.avatarUrl,
         }}
         member={member}
         size={32}

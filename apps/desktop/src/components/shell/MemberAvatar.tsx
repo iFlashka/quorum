@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom';
 import { Phone } from 'lucide-react';
 import type { PublicMember, UserStatus } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
+import { useRuntime } from '@/auth/runtime-store';
 import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
 import { cn } from '@/lib/utils';
@@ -41,7 +42,13 @@ const ROLE_LABEL = {
 
 export interface MemberAvatarProps {
   /** Минимально необходимые данные пользователя — у автора message их хватает. */
-  user: { userId: string; username: string; displayName: string };
+  user: {
+    userId: string;
+    username: string;
+    displayName: string;
+    /** Avatar URL — относительный (`/avatars/{id}`) или абсолютный/data:. */
+    avatarUrl?: string | null;
+  };
   /** Полный member из guild-cache, если есть. Влияет на role/status в popover. */
   member?: PublicMember;
   /** Размер аватарки в px. */
@@ -70,6 +77,9 @@ export function MemberAvatar(props: MemberAvatarProps): JSX.Element {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const initials = avatarInitials(user.displayName || user.username);
   const status = member?.status;
+  const avatarsApi = useRuntime((s) => s.runtime?.avatarsApi);
+  const rawUrl = user.avatarUrl ?? member?.avatarUrl ?? null;
+  const imgUrl = avatarsApi ? avatarsApi.resolveUrl(rawUrl) : null;
 
   return (
     <>
@@ -83,12 +93,16 @@ export function MemberAvatar(props: MemberAvatarProps): JSX.Element {
         }}
         style={{ width: size, height: size, fontSize: Math.round(size * 0.35) }}
         className={cn(
-          'relative flex shrink-0 items-center justify-center rounded-full bg-accent-primary font-semibold text-white',
+          'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-primary font-semibold text-white',
           !disablePopover && 'cursor-pointer transition-transform hover:scale-[1.04]',
           className,
         )}
       >
-        {initials}
+        {imgUrl ? (
+          <img src={imgUrl} alt={user.username} className="h-full w-full object-cover" />
+        ) : (
+          initials
+        )}
         {!hideStatus && status && (
           <span
             className={cn(
@@ -114,7 +128,7 @@ export function MemberAvatar(props: MemberAvatarProps): JSX.Element {
 }
 
 interface MemberPopoverProps {
-  user: { userId: string; username: string; displayName: string };
+  user: MemberAvatarProps['user'];
   member?: PublicMember;
   anchorRef: React.RefObject<HTMLElement>;
   onClose: () => void;
@@ -127,6 +141,7 @@ function MemberPopover({ user, member, anchorRef, onClose }: MemberPopoverProps)
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const meId = useAuth((s) => s.user?.id);
+  const avatarsApi = useRuntime((s) => s.runtime?.avatarsApi);
 
   useLayoutEffect(() => {
     const a = anchorRef.current;
@@ -172,6 +187,8 @@ function MemberPopover({ user, member, anchorRef, onClose }: MemberPopoverProps)
   const status = member?.status;
   const role = member?.role;
   const isMe = meId === user.userId;
+  const rawUrl = user.avatarUrl ?? member?.avatarUrl ?? null;
+  const imgUrl = avatarsApi ? avatarsApi.resolveUrl(rawUrl) : null;
 
   return createPortal(
     <div
@@ -190,9 +207,13 @@ function MemberPopover({ user, member, anchorRef, onClose }: MemberPopoverProps)
       <div className="h-[60px] bg-accent-primary/90" />
       <div className="relative px-4 pb-4">
         <div
-          className="absolute -top-[42px] flex h-[84px] w-[84px] items-center justify-center rounded-full border-[6px] border-bg-deepest bg-accent-primary text-[28px] font-semibold text-white"
+          className="absolute -top-[42px] flex h-[84px] w-[84px] items-center justify-center overflow-hidden rounded-full border-[6px] border-bg-deepest bg-accent-primary text-[28px] font-semibold text-white"
         >
-          {initials}
+          {imgUrl ? (
+            <img src={imgUrl} alt={user.username} className="h-full w-full object-cover" />
+          ) : (
+            initials
+          )}
           {status && (
             <span
               className={cn(
