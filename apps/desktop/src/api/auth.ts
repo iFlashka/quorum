@@ -4,6 +4,8 @@ import {
   type MeResponse,
   type RefreshResponse,
   type RegisterRequest,
+  type UpdateMeRequest,
+  type UpdateMeResponse,
 } from '@quorum/shared';
 import type { ApiClient } from './client';
 
@@ -13,6 +15,7 @@ export interface AuthApi {
   refresh: (refreshToken: string) => Promise<RefreshResponse>;
   logout: (refreshToken: string) => Promise<void>;
   me: () => Promise<MeResponse>;
+  updateMe: (req: UpdateMeRequest) => Promise<UpdateMeResponse>;
 }
 
 export function makeAuthApi(api: ApiClient): AuthApi {
@@ -42,5 +45,10 @@ export function makeAuthApi(api: ApiClient): AuthApi {
         skipRefresh: true,
       }),
     me: () => api.request<MeResponse>('/auth/me', { method: 'GET' }),
+    updateMe: (req) =>
+      api.request<UpdateMeResponse>('/users/me', {
+        method: 'PATCH',
+        body: req,
+      }),
   };
 }

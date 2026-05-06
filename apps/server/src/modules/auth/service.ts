@@ -180,6 +180,26 @@ export class AuthService {
     };
   }
 
+  /**
+   * Patch собственного профиля. Сейчас можно только displayName и status.
+   * username/email/password не трогаем — отдельный flow со re-auth.
+   */
+  async updateMe(
+    userId: string,
+    patch: { displayName?: string; status?: 'online' | 'idle' | 'dnd' },
+  ): Promise<PrivateUser> {
+    const [updated] = await this.db
+      .update(users)
+      .set({
+        ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!updated) throw new AuthError('unauthorized');
+    return toPrivateUser(updated);
+  }
+
   /** Помощник на случай, если понадобится принудительно зачистить мёртвые токены из cron. */
   async janitorCleanup(): Promise<{ removedExpired: number; removedRevoked: number }> {
     const now = this.now();

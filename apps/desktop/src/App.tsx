@@ -27,6 +27,7 @@ import { useVoicePrefs } from '@/voice/prefs';
 import { checkForUpdate } from '@/lib/updater';
 import { useUpdater } from '@/state/updater-store';
 import { UpdaterToast } from '@/components/UpdaterToast';
+import { SettingsModal } from '@/components/settings/SettingsModal';
 
 type Stage = 'bootstrapping' | 'onboarding' | 'login' | 'register' | 'authed';
 
@@ -48,6 +49,7 @@ export function App(): JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
       <AppInner />
+      <SettingsModal />
       <Toaster theme="dark" position="bottom-right" closeButton richColors />
       <UpdaterToast />
     </QueryClientProvider>

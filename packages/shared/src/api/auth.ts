@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PrivateUserSchema, PublicGuildSchema } from '../domain/user.js';
+import { PrivateUserSchema, PublicGuildSchema, UserStatusSchema } from '../domain/user.js';
 
 export const UsernameSchema = z
   .string()
@@ -68,3 +68,21 @@ export const MeResponseSchema = z.object({
   guilds: z.array(PublicGuildSchema),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+/**
+ * Запрос на правку профиля. Поля опциональны — patch-style.
+ */
+export const UpdateMeRequestSchema = z
+  .object({
+    displayName: DisplayNameSchema.optional(),
+    status: UserStatusSchema.exclude(['offline']).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, {
+    message: 'Нечего обновлять',
+  });
+export type UpdateMeRequest = z.infer<typeof UpdateMeRequestSchema>;
+
+export const UpdateMeResponseSchema = z.object({
+  user: PrivateUserSchema,
+});
+export type UpdateMeResponse = z.infer<typeof UpdateMeResponseSchema>;

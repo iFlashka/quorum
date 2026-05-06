@@ -7,9 +7,12 @@ import {
   RefreshRequestSchema,
   RefreshResponseSchema,
   RegisterRequestSchema,
+  UpdateMeRequestSchema,
+  UpdateMeResponseSchema,
   type AuthSuccessResponse,
   type MeResponse,
   type RefreshResponse,
+  type UpdateMeResponse,
 } from '@quorum/shared';
 import { AuthError } from './errors.js';
 import type { AuthService } from './service.js';
@@ -88,6 +91,14 @@ export const authRoutes = (opts: AuthRoutesOptions): FastifyPluginAsync => {
       const me = requireUser(request);
       const data = await service.getMeWithGuilds(me.id);
       const response: MeResponse = MeResponseSchema.parse(data);
+      return reply.code(200).send(response);
+    });
+
+    app.patch('/users/me', async (request, reply) => {
+      const me = requireUser(request);
+      const body = UpdateMeRequestSchema.parse(request.body);
+      const user = await service.updateMe(me.id, body);
+      const response: UpdateMeResponse = UpdateMeResponseSchema.parse({ user });
       return reply.code(200).send(response);
     });
 

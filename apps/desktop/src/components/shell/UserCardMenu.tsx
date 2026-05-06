@@ -1,59 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Bell,
-  BellOff,
-  Check,
-  ChevronRight,
-  LogOut,
-  Mic,
-  Power,
-  RefreshCw,
-  Settings,
-} from 'lucide-react';
+import { LogOut, RefreshCw, Settings } from 'lucide-react';
 import { useRuntime } from '@/auth/runtime-store';
-import { useNotificationPrefs } from '@/state/notification-prefs';
-import { useAutostart } from '@/lib/autostart';
+import { useSettings } from '@/state/settings-store';
 import { cn } from '@/lib/utils';
-import { VoiceSettingsPopover } from './VoiceSettingsPopover';
 
 /**
- * Кнопка-шестерёнка в нижней user-card с dropdown:
- *   - Уведомления (mute toggle)
- *   - Запускать с системой (autostart toggle)
- *   - Сменить сервер
- *   - Выйти
- *
- * Полноценный Settings-screen появится в фазе 7; здесь — самый частый минимум.
+ * Шестерёнка в нижней user-card. Клик открывает Settings-модал. Дополнительно
+ * dropdown'ом — «Сменить сервер» и «Выйти» (быстрый доступ).
  */
-type MenuView = 'main' | 'voice';
-
 export function UserCardMenu(): JSX.Element {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<MenuView>('main');
   const ref = useRef<HTMLDivElement>(null);
   const logout = useRuntime((s) => s.logout);
   const switchServer = useRuntime((s) => s.switchServer);
-
-  const muted = useNotificationPrefs((s) => s.muted);
-  const setMuted = useNotificationPrefs((s) => s.setMuted);
-
-  const autostartEnabled = useAutostart((s) => s.enabled);
-  const autostartReady = useAutostart((s) => s.ready);
-  const toggleAutostart = useAutostart((s) => s.toggle);
+  const openSettings = useSettings((s) => s.openSettings);
 
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent): void => {
-      if (!ref.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setView('main');
-      }
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
     const onEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        setView('main');
-      }
+      if (e.key === 'Escape') setOpen(false);
     };
     document.addEventListener('mousedown', onClick);
     document.addEventListener('keydown', onEsc);
@@ -80,89 +48,40 @@ export function UserCardMenu(): JSX.Element {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 bottom-full z-50 mb-2 min-w-[260px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
+          className="absolute right-0 bottom-full z-50 mb-2 min-w-[220px] overflow-hidden rounded-md bg-bg-elevated py-1 shadow-elevated"
         >
-          {view === 'voice' ? (
-            <VoiceSettingsPopover onBack={() => setView('main')} />
-          ) : (
-            <>
-              <ToggleItem
-                icon={
-                  muted ? (
-                    <BellOff size={16} strokeWidth={1.75} />
-                  ) : (
-                    <Bell size={16} strokeWidth={1.75} />
-                  )
-                }
-                checked={!muted}
-                onClick={() => void setMuted(!muted)}
-              >
-                Уведомления
-              </ToggleItem>
-              <NavItem
-                icon={<Mic size={16} strokeWidth={1.75} />}
-                onClick={() => setView('voice')}
-              >
-                Голос
-              </NavItem>
-              {autostartReady && (
-                <ToggleItem
-                  icon={<Power size={16} strokeWidth={1.75} />}
-                  checked={autostartEnabled}
-                  onClick={() => void toggleAutostart()}
-                >
-                  Запускать с системой
-                </ToggleItem>
-              )}
-              <Divider />
-              <MenuItem
-                icon={<RefreshCw size={16} strokeWidth={1.75} />}
-                onClick={() => {
-                  setOpen(false);
-                  setView('main');
-                  void switchServer();
-                }}
-              >
-                Сменить сервер
-              </MenuItem>
-              <MenuItem
-                icon={<LogOut size={16} strokeWidth={1.75} />}
-                danger
-                onClick={() => {
-                  setOpen(false);
-                  setView('main');
-                  void logout();
-                }}
-              >
-                Выйти
-              </MenuItem>
-            </>
-          )}
+          <MenuItem
+            icon={<Settings size={16} strokeWidth={1.75} />}
+            onClick={() => {
+              setOpen(false);
+              openSettings('account');
+            }}
+          >
+            Настройки
+          </MenuItem>
+          <Divider />
+          <MenuItem
+            icon={<RefreshCw size={16} strokeWidth={1.75} />}
+            onClick={() => {
+              setOpen(false);
+              void switchServer();
+            }}
+          >
+            Сменить сервер
+          </MenuItem>
+          <MenuItem
+            icon={<LogOut size={16} strokeWidth={1.75} />}
+            danger
+            onClick={() => {
+              setOpen(false);
+              void logout();
+            }}
+          >
+            Выйти
+          </MenuItem>
         </div>
       )}
     </div>
-  );
-}
-
-function NavItem({
-  icon,
-  onClick,
-  children,
-}: {
-  icon: React.ReactNode;
-  onClick: () => void;
-  children: React.ReactNode;
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[14px] text-text-secondary transition-colors hover:bg-accent-primary hover:text-white"
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="flex-1 truncate">{children}</span>
-      <ChevronRight size={14} className="shrink-0 opacity-60" />
-    </button>
   );
 }
 
@@ -188,38 +107,6 @@ function MenuItem({ icon, danger, onClick, children }: MenuItemProps): JSX.Eleme
     >
       <span className="shrink-0">{icon}</span>
       <span className="truncate">{children}</span>
-    </button>
-  );
-}
-
-interface ToggleItemProps {
-  icon: React.ReactNode;
-  checked: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}
-
-function ToggleItem({ icon, checked, onClick, children }: ToggleItemProps): JSX.Element {
-  return (
-    <button
-      type="button"
-      role="menuitemcheckbox"
-      aria-checked={checked}
-      onClick={onClick}
-      className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[14px] text-text-secondary transition-colors hover:bg-accent-primary hover:text-white"
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="flex-1 truncate">{children}</span>
-      <span
-        className={cn(
-          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-          checked
-            ? 'border-accent-primary bg-accent-primary text-white'
-            : 'border-text-muted/40 bg-transparent',
-        )}
-      >
-        {checked && <Check size={12} strokeWidth={2.5} />}
-      </span>
     </button>
   );
 }
