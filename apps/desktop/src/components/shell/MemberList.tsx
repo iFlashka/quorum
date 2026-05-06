@@ -8,6 +8,7 @@ import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
 import { MemberAvatar } from './MemberAvatar';
 import { cn } from '@/lib/utils';
+import { roleColorStyle } from '@/lib/role-color';
 
 const ROLE_LABEL = {
   owner: 'OWNER',
@@ -93,7 +94,10 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
         ringColor="bg-darker"
         disablePopover={isMe}
       />
-      <span className="flex-1 truncate text-[15px] font-medium text-text-secondary">
+      <span
+        className="flex-1 truncate text-[15px] font-medium text-text-secondary"
+        style={roleColorStyle(member.role)}
+      >
         {member.nickname ?? member.displayName ?? member.username}
       </span>
       {callable && (

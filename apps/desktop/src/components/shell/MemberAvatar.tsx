@@ -17,6 +17,7 @@ import { useAuth } from '@/auth/store';
 import { useVoice } from '@/voice/store';
 import { useVoiceOrchestrator } from '@/voice/context';
 import { cn } from '@/lib/utils';
+import { roleColorStyle } from '@/lib/role-color';
 
 const STATUS_COLOR: Record<UserStatus, string> = {
   online: 'bg-accent-success',
@@ -195,7 +196,10 @@ function MemberPopover({ user, member, anchorRef, onClose }: MemberPopoverProps)
           )}
         </div>
         <div className="pt-12">
-          <div className="text-[18px] font-semibold leading-tight text-text-primary">
+          <div
+            className="text-[18px] font-semibold leading-tight text-text-primary"
+            style={roleColorStyle(role)}
+          >
             {user.displayName || user.username}
             {isMe && <span className="ml-2 text-[12px] font-normal text-text-muted">(вы)</span>}
           </div>

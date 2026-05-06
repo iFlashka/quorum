@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/store';
 import { useDeleteMessage, useEditMessage, useToggleReaction } from '@/hooks/use-messages';
 import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
+import { roleColorStyle } from '@/lib/role-color';
 import { MemberAvatar } from '@/components/shell/MemberAvatar';
 import { AttachmentTile } from './AttachmentTile';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
@@ -79,7 +80,10 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
       <div className="min-w-0 flex-1">
         {!grouped && (
           <div className="flex items-baseline gap-2">
-            <span className="text-[15px] font-medium text-text-primary">
+            <span
+              className="text-[15px] font-medium text-text-primary"
+              style={roleColorStyle(userById.get(message.author.id)?.role)}
+            >
               {message.author.displayName || message.author.username}
             </span>
             <span className="num-tabular text-[12px] text-text-muted">
