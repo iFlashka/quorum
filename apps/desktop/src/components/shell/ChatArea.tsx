@@ -7,6 +7,7 @@ import { MessageList } from '@/components/messages/MessageList';
 import { MessageInput } from '@/components/messages/MessageInput';
 import { useChannelVoice } from '@/voice/channel-store';
 import { VoiceChannelGrid } from '@/components/voice/VoiceChannelGrid';
+import { InlineCallBanner } from '@/components/voice/InlineCallBanner';
 
 export function ChatArea(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -63,6 +64,8 @@ export function ChatArea(): JSX.Element {
           </HeaderIcon>
         </div>
       </header>
+
+      <InlineCallBanner />
 
       {channel?.kind === 'voice' ? (
         <VoiceChannelView channelId={channelId} channelName={channel.name} />
