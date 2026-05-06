@@ -7,6 +7,7 @@ import { useSelection } from '@/state/selection';
 import { useRuntime } from '@/auth/runtime-store';
 import { ApiError } from '@/api/client';
 import { cn } from '@/lib/utils';
+import { serializeMentions } from '@/lib/mentions';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { MentionMenu } from './MentionMenu';
 
@@ -125,7 +126,9 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
     if (start === null) return;
     const el = textareaRef.current;
     const caret = el?.selectionEnd ?? draft.length;
-    const replacement = `<@${member.userId}> `;
+    // В textarea показываем читаемый @username; в `<@uuid>` сериализуем
+    // прямо перед отправкой через `serializeMentions`.
+    const replacement = `@${member.username} `;
     const next = draft.slice(0, start) + replacement + draft.slice(caret);
     setDraft(next);
     setMentionQuery(null);
@@ -140,7 +143,7 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
   };
 
   const onSubmit = (): void => {
-    const content = draft.trim();
+    const content = serializeMentions(draft.trim(), members);
     const stillUploading = pending.some((p) => p.uploading);
     if (stillUploading) return;
     const attachmentIds = pending
