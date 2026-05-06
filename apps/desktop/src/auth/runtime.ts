@@ -5,6 +5,7 @@
  */
 
 import { ApiClient } from '@/api/client';
+import { makeAttachmentsApi, type AttachmentsApi } from '@/api/attachments';
 import { makeGuildsApi, type GuildsApi } from '@/api/guilds';
 import { makeMessagesApi, type MessagesApi } from '@/api/messages';
 import { keychain, KEYCHAIN_REFRESH_TOKEN } from '@/lib/keychain';
@@ -19,6 +20,7 @@ export interface AppRuntime {
   session: Session;
   guildsApi: GuildsApi;
   messagesApi: MessagesApi;
+  attachmentsApi: AttachmentsApi;
   ws: WebSocketManager;
 }
 
@@ -71,6 +73,7 @@ export function createAppRuntime(serverUrl: string): AppRuntime {
     session: createSession(api),
     guildsApi: makeGuildsApi(api),
     messagesApi: makeMessagesApi(api),
+    attachmentsApi: makeAttachmentsApi(api, serverUrl),
     ws,
   };
 }

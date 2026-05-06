@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, SmilePlus, Trash2 } from 'lucide-react';
 import type { PublicMember, PublicMessage } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useDeleteMessage, useEditMessage, useToggleReaction } from '@/hooks/use-messages';
 import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
+import { AttachmentTile } from './AttachmentTile';
+import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface MessageProps {
@@ -18,6 +20,7 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
   const me = useAuth((s) => s.user);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const channelId = useSelection((s) => s.channelId);
   const editMut = useEditMessage(channelId);
@@ -104,6 +107,13 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
                 (изменено)
               </span>
             )}
+            {message.attachments.length > 0 && (
+              <div className="mt-1 flex flex-col gap-1">
+                {message.attachments.map((a) => (
+                  <AttachmentTile key={a.id} attachment={a} />
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -137,6 +147,25 @@ export function Message({ message, grouped, userById }: MessageProps): JSX.Eleme
 
       {!editing && (
         <div className="absolute top-[-12px] right-4 hidden gap-0.5 rounded-md border border-border-subtle bg-bg-elevated p-0.5 shadow-elevated group-hover:flex">
+          <EmojiPickerPopover
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            onSelect={(emoji) => {
+              setPickerOpen(false);
+              const existing = message.reactions.find((r) => r.emoji === emoji);
+              reactMut.mutate({
+                messageId: message.id,
+                emoji,
+                add: !existing?.reactedByMe,
+              });
+            }}
+            placement="down"
+            anchor={
+              <ActionButton title="Реакция" onClick={() => setPickerOpen((v) => !v)}>
+                <SmilePlus size={16} strokeWidth={1.75} />
+              </ActionButton>
+            }
+          />
           {isMine && (
             <ActionButton title="Редактировать" onClick={() => setEditing(true)}>
               <Pencil size={16} strokeWidth={1.75} />

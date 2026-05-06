@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { PublicChannel } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useGuilds, useGuildChannels } from '@/hooks/use-guild-data';
+import { useChannelHasUnread } from '@/realtime/store';
 import { useSelection } from '@/state/selection';
 import { cn } from '@/lib/utils';
 import { UserCardMenu } from './UserCardMenu';
@@ -120,6 +121,7 @@ interface ChannelButtonProps {
 
 function ChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.Element {
   const Icon = channel.kind === 'text' ? Hash : Volume2;
+  const hasUnread = useChannelHasUnread(channel.id);
   return (
     <button
       type="button"
@@ -128,11 +130,15 @@ function ChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.El
         'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[15px] transition-colors',
         active
           ? 'bg-bg-active text-text-primary'
-          : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
+          : hasUnread
+            ? 'text-text-primary hover:bg-bg-hover'
+            : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
       )}
     >
       <Icon size={20} strokeWidth={1.75} className="shrink-0 text-text-muted" />
-      <span className="truncate">{channel.name}</span>
+      <span className={cn('truncate', hasUnread && !active && 'font-semibold')}>
+        {channel.name}
+      </span>
     </button>
   );
 }

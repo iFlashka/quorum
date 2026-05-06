@@ -63,6 +63,7 @@ function handleEvent(event: ServerEvent, qc: QueryClient): void {
       patchMessages(qc, event.message.channelId, (data) =>
         upsertMessageAtTail(data, event.message),
       );
+      useRealtime.getState().noteIncoming(event.message.channelId, event.message.id);
       return;
 
     case 'message.update':

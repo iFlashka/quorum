@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { PublicMember, PublicMessage } from '@quorum/shared';
 import { useChannelMessages } from '@/hooks/use-messages';
 import { useGuildMembers } from '@/hooks/use-guild-data';
+import { useMarkRead } from '@/hooks/use-mark-read';
 import { useSelection } from '@/state/selection';
 import { Message } from './Message';
 
@@ -45,6 +46,10 @@ export function MessageList(): JSX.Element {
       el.scrollTop = el.scrollHeight;
     }
   }, [flat.length]);
+
+  // Авто-mark-read для последнего видимого сообщения.
+  const lastMessageId = flat.length > 0 ? flat[flat.length - 1]!.id : undefined;
+  useMarkRead(channelId, lastMessageId);
 
   // Загрузка более старых при scroll up.
   const onScroll = (): void => {

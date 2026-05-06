@@ -16,6 +16,10 @@ const TYPING_TTL_MS = 8_000;
 interface RealtimeState {
   typing: Map<string, Map<string, number>>; // channelId → userId → expiresAt
   presence: Map<string, UserStatus>; // userId → status
+  /** id последнего message прочитанного юзером в каждом канале (для unread-бейджей). */
+  lastReadByChannel: Map<string, string>;
+  /** id последнего пришедшего message в канале — сравниваем с lastRead. */
+  lastSeenByChannel: Map<string, string>;
   setPresence: (userId: string, status: UserStatus) => void;
   setManyPresence: (entries: { userId: string; status: UserStatus }[]) => void;
   /** Регистрирует typing-сигнал; expiresAt выставляется автоматически на now+TTL. */
@@ -23,11 +27,17 @@ interface RealtimeState {
   clearTyping: (channelId: string, userId: string) => void;
   /** Чистка истёкших typing-entries. */
   pruneExpired: (now?: number) => void;
+  /** Зафиксировать что в канале появился новый message. */
+  noteIncoming: (channelId: string, messageId: string) => void;
+  /** Пользователь дочитал до messageId. */
+  markRead: (channelId: string, messageId: string) => void;
 }
 
 export const useRealtime = create<RealtimeState>((set) => ({
   typing: new Map(),
   presence: new Map(),
+  lastReadByChannel: new Map(),
+  lastSeenByChannel: new Map(),
 
   setPresence: (userId, status) =>
     set((s) => {
@@ -82,6 +92,20 @@ export const useRealtime = create<RealtimeState>((set) => ({
       }
       return changed ? { typing: next } : s;
     }),
+
+  noteIncoming: (channelId, messageId) =>
+    set((s) => {
+      const next = new Map(s.lastSeenByChannel);
+      next.set(channelId, messageId);
+      return { lastSeenByChannel: next };
+    }),
+
+  markRead: (channelId, messageId) =>
+    set((s) => {
+      const next = new Map(s.lastReadByChannel);
+      next.set(channelId, messageId);
+      return { lastReadByChannel: next };
+    }),
 }));
 
 /**
@@ -105,3 +129,12 @@ export function useTypersByChannel(channelId: string): string[] {
 }
 
 const EMPTY_ARRAY: string[] = [];
+
+/** True если в канале есть unread (lastSeen ≠ lastRead). */
+export function useChannelHasUnread(channelId: string): boolean {
+  return useRealtime((s) => {
+    const seen = s.lastSeenByChannel.get(channelId);
+    if (!seen) return false;
+    return s.lastReadByChannel.get(channelId) !== seen;
+  });
+}

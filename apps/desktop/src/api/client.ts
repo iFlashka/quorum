@@ -49,6 +49,16 @@ export class ApiClient {
     this.opts = opts;
   }
 
+  /** Текущий access-токен (для multipart-роутов которые делают свой fetch). */
+  getAccessToken(): string | null {
+    return this.opts.getAccessToken();
+  }
+
+  /** Принудительный refresh — для нестандартных запросов (multipart). */
+  refreshTokensManually(): Promise<string | null> {
+    return this.coalescedRefresh();
+  }
+
   async request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     const url = `${this.opts.baseUrl}${path}`;
     const headers: Record<string, string> = {
