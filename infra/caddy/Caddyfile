@@ -1,0 +1,31 @@
+# Caddyfile — reverse proxy для прода (фаза 7).
+# В фазе 0 это заготовка: показывает финальную форму, но на dev-машине не запускается.
+#
+# Caddy сам выписывает Let's Encrypt сертификаты — нужно только указать домен
+# и в DNS настроить A-запись на VPS. Деплоится через docker-compose.prod.yml.
+
+{$QUORUM_DOMAIN:quorum.example.com} {
+    # Основной API + WebSocket (всё через тот же Fastify)
+    reverse_proxy server:3000
+
+    # LiveKit signaling — отдельный сабпуть, чтобы не путать с нашим WS
+    handle_path /livekit/* {
+        reverse_proxy livekit:7880
+    }
+
+    # Сжатие
+    encode gzip zstd
+
+    # Безопасные дефолты
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

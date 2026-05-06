@@ -1,0 +1,61 @@
+# Локальная dev-инфра для Quorum.
+# Поднимается командой: pnpm infra:up
+#
+# В фазе 0 это «всё дефолтное, без авторизации» — только чтобы сервисы поднялись и были видны
+# с локалхоста. В фазе 7 появится docker-compose.prod.yml с секретами, Caddy, доменом и т.д.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: quorum-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quorum
+      POSTGRES_PASSWORD: quorum_dev
+      POSTGRES_DB: quorum
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U quorum -d quorum']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: quorum-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: quorum-livekit
+    restart: unless-stopped
+    command: ['--config', '/livekit.yaml']
+    ports:
+      - '7880:7880' # WebSocket signaling
+      - '7881:7881' # TCP fallback
+      - '7882:7882/udp' # ICE / media
+    volumes:
+      - ./livekit/livekit.yaml:/livekit.yaml:ro
+    depends_on:
+      - redis
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: quorum-coturn
+    restart: unless-stopped
+    network_mode: host # coturn нужен прямой доступ к UDP-портам ICE
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro

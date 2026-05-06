@@ -1,0 +1,111 @@
+/* Inter Variable — единый файл, плавная регулировка веса 100–900 + opsz 14–32 */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/inter/wght-italic.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Палитра выверена по актуальному Discord (2026). Каждый слой ровно на одну
+       ступеньку светлее предыдущего — так получается «слоёный» вид у трёх колонок. */
+    --bg-deepest: #1e1f22; /* server list (узкая левая колонка) */
+    --bg-darker: #2b2d31; /* channel/DM sidebar + member list */
+    --bg-default: #313338; /* основная область чата */
+    --bg-elevated: #383a40; /* hover на сообщении, input bar */
+    --bg-hover: #404249; /* hover на каналах/мемберах */
+    --bg-active: #404249; /* активный канал */
+
+    --text-primary: #f2f3f5;
+    --text-secondary: #b5bac1;
+    --text-muted: #80848e;
+    --text-link: #00a8fc;
+
+    --accent-primary: #5865f2;
+    --accent-hover: #4752c4;
+    --accent-success: #23a55a;
+    --accent-warning: #f0b232;
+    --accent-danger: #f23f43;
+
+    --border-subtle: #3f4147;
+    --shadow-elevated: 0 8px 16px rgba(0, 0, 0, 0.24);
+
+    --titlebar-height: 28px;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--bg-default);
+    color: var(--text-primary);
+    font-family:
+      'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      Roboto, 'Helvetica Neue', Arial, sans-serif;
+    /* Включаем гуманистические character variants — приближают Inter к gg sans:
+       cv05 = одноэтажная g, cv08 = прямая l, cv11 = открытый x-height                */
+    font-feature-settings:
+      'cv05' 1,
+      'cv08' 1,
+      'cv11' 1,
+      'ss01' 1;
+    font-size: 15px;
+    line-height: 1.375;
+    font-weight: 400;
+    overflow: hidden;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Discord использует tabular цифры для таймстампов — делаем класс */
+  .num-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Тонкие скроллбары как в Discord */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--bg-deepest);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--border-subtle);
+  }
+
+  button {
+    font-family: inherit;
+  }
+
+  /* Селекшен — фирменный синий приглушённо */
+  ::selection {
+    background-color: rgba(88, 101, 242, 0.45);
+  }
+}
+
+@layer utilities {
+  .titlebar-drag {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
