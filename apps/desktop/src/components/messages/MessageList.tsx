@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PublicMember, PublicMessage } from '@quorum/shared';
 import { useChannelMessages } from '@/hooks/use-messages';
-import { useGuildMembers } from '@/hooks/use-guild-data';
+import { useGuildChannels, useGuildMembers } from '@/hooks/use-guild-data';
 import { useMarkRead } from '@/hooks/use-mark-read';
 import { useSelection } from '@/state/selection';
 import { useAuth } from '@/auth/store';
@@ -9,6 +9,7 @@ import { useRealtime } from '@/realtime/store';
 import { Message } from './Message';
 import { DateDivider, sameDay } from './DateDivider';
 import { NewMessageDivider } from './NewMessageDivider';
+import { ChannelWelcome } from './ChannelWelcome';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -18,6 +19,8 @@ export function MessageList(): JSX.Element {
   const meId = useAuth((s) => s.user?.id);
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useChannelMessages(channelId);
   const { data: membersData } = useGuildMembers(guildId);
+  const { data: channelsData } = useGuildChannels(guildId);
+  const channel = channelsData?.channels.find((c) => c.id === channelId);
 
   // Snapshot lastReadId на момент входа в канал — divider «Новое» рисуется
   // перед первым сообщением, чей createdAt позже, чем у snapshot-сообщения.
@@ -107,16 +110,14 @@ export function MessageList(): JSX.Element {
           {isFetchingNextPage ? 'Загружаем более старые…' : 'Прокрутите вверх для загрузки истории'}
         </div>
       )}
-      {!hasNextPage && flat.length > 0 && (
-        <div className="px-4 py-2 text-center text-[12px] text-text-muted">— начало канала —</div>
+      {!hasNextPage && !isLoading && channel && (
+        <ChannelWelcome
+          channelName={channel.name}
+          channelKind={channel.kind === 'voice' ? 'voice' : 'text'}
+        />
       )}
       {isLoading && flat.length === 0 && (
         <div className="px-4 py-8 text-center text-text-muted">Загрузка сообщений…</div>
-      )}
-      {!isLoading && flat.length === 0 && (
-        <div className="px-4 py-8 text-center text-text-muted">
-          Пока ничего не написали. Напиши первый!
-        </div>
       )}
       <div>
         {flat.map((m, i) => {
