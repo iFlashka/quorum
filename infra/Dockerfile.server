@@ -17,7 +17,7 @@ COPY apps/server/     ./apps/server/
 RUN pnpm --filter @quorum/server build
 
 # pnpm deploy разворачивает workspace-deps и оставляет только prod-модули
-RUN pnpm --filter @quorum/server deploy --prod /deploy
+RUN pnpm --filter @quorum/server deploy --prod --legacy /deploy
 RUN cp -r /build/apps/server/dist /deploy/dist
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
