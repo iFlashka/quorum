@@ -100,6 +100,14 @@ export class VoicePeer {
       opts.onStateChange(this.pc.connectionState);
     });
 
+    // Fallback: iceconnectionstatechange надёжнее срабатывает в WebView2/Tauri.
+    this.pc.addEventListener('iceconnectionstatechange', () => {
+      const s = this.pc.iceConnectionState;
+      if (s === 'connected' || s === 'completed') opts.onStateChange('connected');
+      else if (s === 'failed') opts.onStateChange('failed');
+      else if (s === 'disconnected') opts.onStateChange('disconnected');
+    });
+
     this.pc.addEventListener('negotiationneeded', () => {
       void this.handleNegotiationNeeded();
     });

@@ -280,6 +280,9 @@ export class VoiceOrchestrator {
 
     try {
       const iceServers = await this.fetchIceServers();
+      // Проверяем что hangup не был вызван пока ждали ICE-серверы.
+      if (useVoice.getState().callId !== callId) return;
+
       const peer = new VoicePeer({
         iceServers,
         impolite: state.isOfferer,
@@ -328,6 +331,14 @@ export class VoiceOrchestrator {
         ...(prefs.inputDeviceId ? { deviceId: prefs.inputDeviceId } : {}),
       });
       // Прослойка GainNode для inputVolume — реактивно слушает useVoicePrefs.
+      // Hangup мог быть вызван пока ждали getUserMedia.
+      if (useVoice.getState().callId !== callId) {
+        stopStream(rawStream);
+        peer.close();
+        this.peer = null;
+        return;
+      }
+
       this.micGain = wrapMicWithGain(rawStream);
       this.micRawStream = rawStream;
       const stream = this.micGain.stream;
