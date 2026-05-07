@@ -1,24 +1,33 @@
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig } from 'tsup';
 
-/**
- * Production-сборка сервера. tsup bundle'ит включая `@quorum/shared` (workspace
- * пакет), поэтому единственный output-файл self-contained кроме node_modules.
- *
- * В dev мы по-прежнему гоняем `tsx watch src/index.ts` — там shared резолвится
- * через workspace-symlink + ts-source. tsup используется только для prod.
- */
+function copyDir(src: string, dest: string): void {
+  mkdirSync(dest, { recursive: true });
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    const s = join(src, entry.name);
+    const d = join(dest, entry.name);
+    if (entry.isDirectory()) copyDir(s, d);
+    else copyFileSync(s, d);
+  }
+}
+
+function copyMigrations(): void {
+  copyDir(join('src', 'db', 'migrations'), join('dist', 'db', 'migrations'));
+}
+
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/db/migrate.ts'],
   outDir: 'dist',
   format: ['esm'],
   target: 'node20',
   platform: 'node',
   bundle: true,
   splitting: false,
-  // shared компилируется внутрь bundle, остальное (fastify, drizzle и т.д.)
-  // оставляем external — в проде установится через pnpm.
   noExternal: ['@quorum/shared'],
   clean: true,
   sourcemap: true,
-  // Drizzle migrations folder копируется отдельно (это .sql, не TS).
+  async onSuccess() {
+    copyMigrations();
+  },
 });

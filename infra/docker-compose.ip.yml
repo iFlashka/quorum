@@ -15,10 +15,12 @@
 
 services:
   server:
-    image: node:20-alpine
+    build:
+      context: ./server-dist
+      dockerfile: ../Dockerfile.server
+    image: quorum-server:latest
     container_name: quorum-server
     restart: unless-stopped
-    working_dir: /app
     command: ['node', 'dist/index.js']
     ports:
       - '4421:4421'
@@ -41,7 +43,6 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
       LIVEKIT_WS_URL: ws://${LIVEKIT_PUBLIC_HOST}:7880
     volumes:
-      - ./server-dist:/app:ro
       - ./data/uploads:/uploads
     depends_on:
       postgres:
