@@ -1,6 +1,27 @@
+# ── Stage 1: build ────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /build
+
+RUN corepack enable && corepack prepare pnpm@10.33.3 --activate
+
+# Manifests отдельно — слой кешируется пока lock-файл не изменится
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY apps/server/package.json       ./apps/server/package.json
+
+RUN pnpm install --frozen-lockfile
+
+# Исходники
+COPY packages/shared/ ./packages/shared/
+COPY apps/server/     ./apps/server/
+
+RUN pnpm --filter @quorum/server build
+
+# ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev --ignore-scripts \
- && npm rebuild @node-rs/argon2
-COPY dist/ ./dist/
+
+COPY --from=builder /build/apps/server/package.json ./
+RUN npm install --omit=dev
+
+COPY --from=builder /build/apps/server/dist/ ./dist/

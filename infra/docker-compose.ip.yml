@@ -16,8 +16,8 @@
 services:
   server:
     build:
-      context: ./server-dist
-      dockerfile: ../Dockerfile.server
+      context: ..
+      dockerfile: infra/Dockerfile.server
     image: quorum-server:latest
     container_name: quorum-server
     restart: unless-stopped
