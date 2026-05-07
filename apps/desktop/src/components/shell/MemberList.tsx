@@ -1,4 +1,5 @@
-import { Phone, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import type { PublicMember } from '@quorum/shared';
 import { useGuildMembers } from '@/hooks/use-guild-data';
 import { useRealtime } from '@/realtime/store';
@@ -161,7 +162,7 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
         disablePopover={isMe}
       />
       <span
-        className="flex-1 truncate text-[16px] font-medium text-text-secondary"
+        className="flex-1 truncate text-[14px] font-medium text-text-secondary"
         style={roleColorStyle(member.role)}
       >
         {member.nickname ?? member.displayName ?? member.username}
@@ -174,7 +175,7 @@ function MemberRow({ member }: { member: PublicMember }): JSX.Element {
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-bg-default hover:text-accent-success"
           title="Позвонить"
         >
-          <Phone size={14} strokeWidth={2} />
+          <Glyph name="phone" size={14} />
         </button>
       )}
     </div>

@@ -6,7 +6,8 @@
  *   - InlineCallBanner оставлен (1:1 звонок может идти параллельно)
  */
 
-import { Phone, Pin, Search, UserPlus, Video } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import { useAuth } from '@/auth/store';
 import { useDmChannels } from '@/hooks/use-dm';
 import { useMembersIndex } from '@/hooks/use-members-index';
@@ -64,20 +65,20 @@ export function DmChatArea(): JSX.Element {
               disabled={!callable}
               onClick={() => peerId && void orchestrator.placeCall(peerId)}
             >
-              <Phone size={20} strokeWidth={1.75} />
+              <Glyph name="phone" size={20} />
             </HeaderIcon>
             <HeaderIcon
               title="Видеозвонок"
               disabled={!callable}
               onClick={() => peerId && void orchestrator.placeCall(peerId)}
             >
-              <Video size={20} strokeWidth={1.75} />
+              <Glyph name="video" size={20} />
             </HeaderIcon>
             <HeaderIcon title="Закреплённые">
-              <Pin size={20} strokeWidth={1.75} />
+              <Glyph name="pin" size={20} />
             </HeaderIcon>
             <HeaderIcon title="Добавить">
-              <UserPlus size={20} strokeWidth={1.75} />
+              <Glyph name="addFriend" size={20} />
             </HeaderIcon>
             <div className="ml-2 flex h-7 cursor-text items-center gap-2 rounded-[4px] bg-bg-deepest px-2 text-[13px] text-text-muted">
               <span>Поиск</span>

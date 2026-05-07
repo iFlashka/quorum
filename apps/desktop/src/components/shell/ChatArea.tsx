@@ -1,4 +1,5 @@
-import { Bell, Hash, Inbox, MessageSquare, Pin, Search, Users, Volume2 } from 'lucide-react';
+import { Bell, Hash, Inbox, MessageSquare, Search, Users, Volume2 } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import { useMemo } from 'react';
 import { useAuth } from '@/auth/store';
 import { useGuildChannels, useGuildMembers } from '@/hooks/use-guild-data';
@@ -55,7 +56,7 @@ export function ChatArea(): JSX.Element {
             <Bell size={20} strokeWidth={1.75} />
           </HeaderIcon>
           <HeaderIcon title="Закреплённые">
-            <Pin size={20} strokeWidth={1.75} />
+            <Glyph name="pin" size={20} />
           </HeaderIcon>
           <HeaderIcon title="Участники">
             <Users size={20} strokeWidth={1.75} />

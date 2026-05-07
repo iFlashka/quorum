@@ -4,7 +4,7 @@
  * + три кнопки справа: Mic / Headphones (deafen) / Settings.
  */
 
-import { Headphones, HeadphoneOff, Mic, MicOff } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import { useAuth } from '@/auth/store';
 import { useRuntime } from '@/auth/runtime-store';
 import { useChannelVoice } from '@/voice/channel-store';
@@ -133,9 +133,9 @@ function GlobalMuteButton(): JSX.Element {
       className="flex h-8 w-8 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
     >
       {muted ? (
-        <MicOff size={16} strokeWidth={1.75} className="text-accent-danger" />
+        <Glyph name="micOff" size={18} className="text-accent-danger" />
       ) : (
-        <Mic size={16} strokeWidth={1.75} />
+        <Glyph name="mic" size={18} />
       )}
     </button>
   );
@@ -168,9 +168,9 @@ function DeafenButton(): JSX.Element {
       className="flex h-8 w-8 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
     >
       {deafened ? (
-        <HeadphoneOff size={16} strokeWidth={1.75} className="text-accent-danger" />
+        <Glyph name="headphonesOff" size={18} className="text-accent-danger" />
       ) : (
-        <Headphones size={16} strokeWidth={1.75} />
+        <Glyph name="headphones" size={18} />
       )}
     </button>
   );

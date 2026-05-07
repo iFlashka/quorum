@@ -1,4 +1,4 @@
-import { Mic, MicOff, UserPlus } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import { useShallow } from 'zustand/shallow';
 import { toast } from 'sonner';
 import type { PublicMember } from '@quorum/shared';
@@ -102,8 +102,8 @@ export function VoiceChannelMembers({ channelId }: VoiceChannelMembersProps): JS
             {p.name}
             {p.isLocal && ' (вы)'}
           </span>
-          {!p.audioEnabled && <MicOff size={12} className="text-accent-danger" />}
-          {p.audioEnabled && p.speaking && <Mic size={12} className="text-accent-success" />}
+          {!p.audioEnabled && <Glyph name="micOff" size={12} className="text-accent-danger" />}
+          {p.audioEnabled && p.speaking && <Glyph name="mic" size={12} className="text-accent-success" />}
         </li>
       ))}
       <li>
@@ -117,7 +117,7 @@ export function VoiceChannelMembers({ channelId }: VoiceChannelMembersProps): JS
           className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[13px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-secondary"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-text-muted/40">
-            <UserPlus size={12} strokeWidth={2} />
+            <Glyph name="addFriend" size={12} />
           </span>
           <span>Пригласить в голосовой чат</span>
         </button>

@@ -13,15 +13,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
-import {
-  ChevronUp,
-  PartyPopper,
-  PhoneOff,
-  ScreenShare,
-  Sparkles,
-  Video,
-  VideoOff,
-} from 'lucide-react';
+import { ChevronUp, Sparkles, VideoOff } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import { useShallow } from 'zustand/shallow';
 import type { ScreenQualitySettings } from '@quorum/shared';
 import { useChannelVoice } from '@/voice/channel-store';
@@ -92,7 +85,7 @@ export function VoiceChannelBar(): JSX.Element | null {
           title="Покинуть канал"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-default text-text-secondary transition-colors hover:bg-accent-danger hover:text-white"
         >
-          <PhoneOff size={16} strokeWidth={2} />
+          <Glyph name="phoneOff" size={16} />
         </button>
       </div>
 
@@ -110,7 +103,7 @@ export function VoiceChannelBar(): JSX.Element | null {
           disabled={disabled}
           onClick={() => void orchestrator.toggleCamera()}
         >
-          {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
+          {cameraOn ? <Glyph name="video" size={18} /> : <VideoOff size={18} strokeWidth={1.75} />}
         </BarButton>
         <BarButton
           title="Soundboard (скоро)"
@@ -118,7 +111,7 @@ export function VoiceChannelBar(): JSX.Element | null {
           disabled={disabled}
           onClick={() => undefined}
         >
-          <PartyPopper size={18} />
+          <Glyph name="partyPopper" size={18} />
         </BarButton>
         <BarButton
           title="Активности (скоро)"
@@ -265,7 +258,7 @@ function ScreenShareSplitButton({
             : 'bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary',
         )}
       >
-        <ScreenShare size={18} />
+        <Glyph name="screenShare" size={18} />
       </button>
       <button
         ref={caretRef}

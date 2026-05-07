@@ -11,7 +11,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageCircle, Phone } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import type { PublicMember, UserStatus } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useRuntime } from '@/auth/runtime-store';
@@ -307,7 +308,7 @@ function CallButton({ userId, status, onAction }: CallButtonProps): JSX.Element 
       )}
       title={reason}
     >
-      <Phone size={16} strokeWidth={2} />
+      <Glyph name="phone" size={16} />
       Позвонить
     </button>
   );

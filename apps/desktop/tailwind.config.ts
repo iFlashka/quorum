@@ -34,6 +34,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          '"Plus Jakarta Sans Variable"',
           '"Inter Variable"',
           'Inter',
           '-apple-system',

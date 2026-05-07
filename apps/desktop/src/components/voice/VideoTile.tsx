@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { MicOff } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import { cn } from '@/lib/utils';
 
 interface VideoTileProps {
@@ -76,7 +76,7 @@ export function VideoTile({
         </span>
         {muted && (
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-danger text-white">
-            <MicOff size={12} strokeWidth={2.5} />
+            <Glyph name="micOff" size={12} />
           </span>
         )}
       </div>

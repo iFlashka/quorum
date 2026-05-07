@@ -3,12 +3,12 @@ import {
   CornerUpLeft,
   File as FileIcon,
   Gift,
-  PartyPopper,
   Plus,
   Smile,
   Sticker,
   X,
 } from 'lucide-react';
+import { Glyph } from '@/components/Glyph';
 import type { PublicAttachment, PublicMember } from '@quorum/shared';
 import { useSendMessage } from '@/hooks/use-messages';
 import { useGuildMembers } from '@/hooks/use-guild-data';
@@ -376,7 +376,7 @@ export function MessageInput({ channelName }: MessageInputProps): JSX.Element {
           }
         />
         <DecorativeIconButton title="Soundboard (скоро)">
-          <PartyPopper size={20} strokeWidth={1.75} />
+          <Glyph name="partyPopper" size={20} />
         </DecorativeIconButton>
       </div>
       {error && (
