@@ -33,7 +33,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 30d
-      UPLOADS_DIR: /app/uploads
+      UPLOADS_DIR: /uploads
       TURN_SHARED_SECRET: ${TURN_SHARED_SECRET}
       TURN_PUBLIC_URLS: turn:${COTURN_PUBLIC_HOST}:3478,stun:${COTURN_PUBLIC_HOST}:3478
       TURN_TTL_SECONDS: 3600
@@ -42,7 +42,7 @@ services:
       LIVEKIT_WS_URL: ws://${LIVEKIT_PUBLIC_HOST}:7880
     volumes:
       - ./server-dist:/app:ro
-      - ./data/uploads:/app/uploads
+      - ./data/uploads:/uploads
     depends_on:
       postgres:
         condition: service_healthy
