@@ -5,6 +5,7 @@ import { DmSidebar } from './DmSidebar';
 import { ChatArea } from './ChatArea';
 import { DmChatArea } from './DmChatArea';
 import { MemberList } from './MemberList';
+import { DmPeerPanel } from './DmPeerPanel';
 
 export function AppShell(): JSX.Element {
   const mode = useSelection((s) => s.mode);
@@ -13,7 +14,7 @@ export function AppShell(): JSX.Element {
       <ServerList />
       {mode === 'dm' ? <DmSidebar /> : <ChannelSidebar />}
       {mode === 'dm' ? <DmChatArea /> : <ChatArea />}
-      {mode === 'guild' && <MemberList />}
+      {mode === 'guild' ? <MemberList /> : <DmPeerPanel />}
     </div>
   );
 }
