@@ -11,17 +11,16 @@ COPY apps/server/package.json       ./apps/server/package.json
 
 RUN pnpm install --frozen-lockfile
 
-# Исходники
 COPY packages/shared/ ./packages/shared/
 COPY apps/server/     ./apps/server/
 
 RUN pnpm --filter @quorum/server build
 
+# pnpm deploy разворачивает workspace-deps и оставляет только prod-модули
+RUN pnpm --filter @quorum/server deploy --prod /deploy
+RUN cp -r /build/apps/server/dist /deploy/dist
+
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
-
-COPY --from=builder /build/apps/server/package.json ./
-RUN npm install --omit=dev
-
-COPY --from=builder /build/apps/server/dist/ ./dist/
+COPY --from=builder /deploy ./
