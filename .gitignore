@@ -64,3 +64,6 @@ private.pem
 
 # Local Claude settings (machine-specific)
 .claude/settings.local.json
+
+# Design system reference (fonts copied to public/fonts)
+system/

@@ -1,11 +1,3 @@
-/**
- * Main-area для DM-режима. Аналог ChatArea для гилд-канала, но:
- *   - header показывает peer-аватар, имя и иконки звонка/видео
- *   - вместо MessageList — DmMessageList (через useDmMessages)
- *   - вместо MessageInput — DmMessageInput
- *   - InlineCallBanner оставлен (1:1 звонок может идти параллельно)
- */
-
 import { Search } from 'lucide-react';
 import { Glyph } from '@/components/Glyph';
 import { useAuth } from '@/auth/store';
@@ -21,6 +13,7 @@ import { DmMessageList } from '@/components/messages/DmMessageList';
 import { DmMessageInput } from '@/components/messages/DmMessageInput';
 import { MemberAvatar } from './MemberAvatar';
 import { MessageCircle } from 'lucide-react';
+import { IconButton } from '@/components/ui/icon-button';
 
 export function DmChatArea(): JSX.Element {
   const meId = useAuth((s) => s.user?.id);
@@ -38,8 +31,8 @@ export function DmChatArea(): JSX.Element {
   const callable = !!peerId && callPhase === 'idle';
 
   return (
-    <main className="flex min-w-0 flex-1 flex-col bg-bg-default">
-      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center gap-2 px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
+    <main className="flex min-w-0 flex-1 flex-col bg-bg-5">
+      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center gap-2 px-4 shadow-low">
         {peerId && peer && (
           <MemberAvatar
             user={{
@@ -54,33 +47,33 @@ export function DmChatArea(): JSX.Element {
             disablePopover
           />
         )}
-        <span className="text-[16px] font-semibold tracking-tight text-text-primary">
+        <span className="text-[16px] font-bold text-text-strong">
           {dm ? peerName : 'Личные сообщения'}
         </span>
 
         {dm && (
-          <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 text-text-secondary">
-            <HeaderIcon
+          <div className="titlebar-no-drag ml-auto flex items-center gap-0.5">
+            <IconButton
               title="Голосовой звонок"
               disabled={!callable}
               onClick={() => peerId && void orchestrator.placeCall(peerId)}
             >
               <Glyph name="phone" size={20} />
-            </HeaderIcon>
-            <HeaderIcon
+            </IconButton>
+            <IconButton
               title="Видеозвонок"
               disabled={!callable}
               onClick={() => peerId && void orchestrator.placeCall(peerId)}
             >
               <Glyph name="video" size={20} />
-            </HeaderIcon>
-            <HeaderIcon title="Закреплённые">
+            </IconButton>
+            <IconButton title="Закреплённые">
               <Glyph name="pin" size={20} />
-            </HeaderIcon>
-            <HeaderIcon title="Добавить">
+            </IconButton>
+            <IconButton title="Добавить">
               <Glyph name="addFriend" size={20} />
-            </HeaderIcon>
-            <div className="ml-2 flex h-7 cursor-text items-center gap-2 rounded-[4px] bg-bg-deepest px-2 text-[13px] text-text-muted">
+            </IconButton>
+            <div className="ml-2 flex h-[28px] cursor-text items-center gap-2 rounded-[4px] bg-bg-3 px-2 text-[13px] text-int-muted">
               <span>Поиск</span>
               <Search size={14} strokeWidth={2} className="ml-auto" />
             </div>
@@ -104,26 +97,5 @@ export function DmChatArea(): JSX.Element {
         </>
       )}
     </main>
-  );
-}
-
-interface HeaderIconProps {
-  children: React.ReactNode;
-  title?: string;
-  disabled?: boolean;
-  onClick?: () => void;
-}
-
-function HeaderIcon({ children, title, disabled, onClick }: HeaderIconProps): JSX.Element {
-  return (
-    <button
-      type="button"
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-7 w-7 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      {children}
-    </button>
   );
 }

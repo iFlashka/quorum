@@ -1,11 +1,34 @@
-/* Plus Jakarta Sans Variable — основной UI-шрифт.
-   Inter Variable оставлен fallback'ом / для кириллицы (Plus Jakarta cyrillic неполный). */
-@import '@fontsource-variable/plus-jakarta-sans/wght.css';
-@import '@fontsource-variable/plus-jakarta-sans/wght-italic.css';
-@import '@fontsource-variable/inter/wght.css';
-@import '@fontsource-variable/inter/wght-italic.css';
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/500.css';
+
+@font-face {
+  font-family: 'sans-me';
+  src: url('/fonts/sans-me-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'sans-me';
+  src: url('/fonts/sans-me-medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'sans-me';
+  src: url('/fonts/sans-me-semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'sans-me';
+  src: url('/fonts/sans-me-bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -13,29 +36,92 @@
 
 @layer base {
   :root {
-    /* Палитра выверена по актуальному Discord (2026). Каждый слой ровно на одну
-       ступеньку светлее предыдущего — так получается «слоёный» вид у трёх колонок. */
-    --bg-deepest: #1e1f22; /* server list (узкая левая колонка) */
-    --bg-darker: #2b2d31; /* channel/DM sidebar + member list */
-    --bg-default: #313338; /* основная область чата */
-    --bg-elevated: #383a40; /* hover на сообщении, input bar */
-    --bg-hover: #404249; /* hover на каналах/мемберах */
-    --bg-active: #404249; /* активный канал */
+    /* ── Neutral scale ─────────────────────────────────────────── */
+    --clr-n1:  #ffffff;
+    --clr-n10: #e3e5e8;
+    --clr-n20: #b5bac1;
+    --clr-n30: #80848e;
+    --clr-n40: #4e5058;
+    --clr-n50: #404249;
+    --clr-n60: #383a40;
+    --clr-n66: #313338;
+    --clr-n69: #2b2d31;
+    --clr-n73: #232428;
+    --clr-n80: #1e1f22;
+    --clr-n90: #111214;
 
-    --text-primary: #f2f3f5;
-    --text-secondary: #b5bac1;
-    --text-muted: #80848e;
-    --text-link: #00a8fc;
+    /* ── Brand ─────────────────────────────────────────────────── */
+    --clr-blurple:       #5865f2;
+    --clr-blurple-hover: #4752c4;
+    --clr-blurple-press: #3c45a5;
 
-    --accent-primary: #5865f2;
-    --accent-hover: #4752c4;
-    --accent-success: #23a55a;
-    --accent-warning: #f0b232;
-    --accent-danger: #f23f43;
+    /* ── Status ────────────────────────────────────────────────── */
+    --clr-online:  #23a559;
+    --clr-idle:    #f0b332;
+    --clr-dnd:     #f23f43;
+    --clr-offline: #80848e;
+    --clr-stream:  #593695;
 
-    --border-subtle: #3f4147;
-    --shadow-elevated: 0 8px 16px rgba(0, 0, 0, 0.24);
+    /* ── Semantic ──────────────────────────────────────────────── */
+    --clr-danger:   #da373c;
+    --clr-positive: #248046;
+    --clr-pink:     #eb459e;
 
+    /* ── Text ──────────────────────────────────────────────────── */
+    --text-strong: #ffffff;
+    --text-normal: #e3e5e8;
+    --text-muted:  #80848e;
+    --text-link:   #00a8fc;
+
+    /* ── Interactive states ────────────────────────────────────── */
+    --int-normal: #b5bac1;
+    --int-hover:  #dbdee1;
+    --int-active: #ffffff;
+    --int-muted:  #4e5058;
+
+    /* ── Background layers (dark → light) ──────────────────────── */
+    --bg-1: #111214;   /* context menus, toolbar */
+    --bg-2: #1e1f22;   /* guild/server list */
+    --bg-3: #232428;   /* user area */
+    --bg-4: #2b2d31;   /* channel sidebar */
+    --bg-5: #313338;   /* main chat */
+    --bg-6: #383a40;   /* hover, input bar */
+    --bg-7: #404249;   /* selected / highlighted */
+
+    /* ── Backward-compat aliases (компоненты используют эти имена) */
+    --bg-deepest: var(--bg-3);
+    --bg-darker:  var(--bg-4);
+    --bg-default: var(--bg-5);
+    --bg-elevated: var(--bg-6);
+    --bg-hover:   var(--bg-7);
+    --bg-active:  var(--bg-7);
+
+    --text-primary:   var(--text-normal);
+    --text-secondary: var(--int-normal);
+
+    --accent-primary: var(--clr-blurple);
+    --accent-hover:   var(--clr-blurple-hover);
+    --accent-success: var(--clr-online);
+    --accent-warning: var(--clr-idle);
+    --accent-danger:  var(--clr-dnd);
+
+    /* ── Borders ───────────────────────────────────────────────── */
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.12);
+
+    /* ── Shadows ───────────────────────────────────────────────── */
+    --shadow-low:  0 1px 0 rgba(4,4,5,.20), 0 1.5px 0 rgba(6,6,7,.05), 0 2px 0 rgba(4,4,5,.05);
+    --shadow-mid:  0 4px 4px rgba(0, 0, 0, 0.16);
+    --shadow-high: 0 8px 16px rgba(0, 0, 0, 0.24);
+
+    /* ── Border radius ─────────────────────────────────────────── */
+    --r-xs:   4px;
+    --r-sm:   8px;
+    --r-md:   12px;
+    --r-lg:   16px;
+    --r-full: 9999px;
+
+    /* ── Tauri ─────────────────────────────────────────────────── */
     --titlebar-height: 28px;
   }
 
@@ -48,14 +134,10 @@
   }
 
   body {
-    background-color: var(--bg-default);
-    color: var(--text-primary);
-    font-family:
-      'Plus Jakarta Sans Variable', 'Inter Variable', 'Inter', -apple-system,
-      BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    /* tnum выключаем — для общего текста проп.цифры; tabular ставим точечно через .num-tabular */
-    font-feature-settings:
-      'ss01' 1;
+    background-color: var(--bg-5);
+    color: var(--text-normal);
+    font-family: 'sans-me', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
     font-size: 15px;
     line-height: 1.375;
     font-weight: 400;
@@ -65,12 +147,10 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Discord использует tabular цифры для таймстампов — делаем класс */
   .num-tabular {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Тонкие скроллбары как в Discord */
   *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -79,27 +159,23 @@
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: var(--bg-deepest);
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 4px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--border-subtle);
+    background-color: rgba(255, 255, 255, 0.16);
   }
 
   button {
     font-family: inherit;
   }
 
-  /* Селекшен — фирменный синий приглушённо */
   ::selection {
     background-color: rgba(88, 101, 242, 0.45);
   }
 
-  /* Mention-pill — Discord-style: синий полупрозрачный pill, на hover полная
-     заливка. mention-me — те же пропорции, но в янтарном (как «mention you»
-     в Discord 2026). */
   .mention {
     color: #c9cdfb;
     background-color: rgba(88, 101, 242, 0.3);
@@ -107,12 +183,10 @@
     border-radius: 3px;
     font-weight: 500;
     cursor: pointer;
-    transition:
-      background-color 80ms ease,
-      color 80ms ease;
+    transition: background-color 80ms ease, color 80ms ease;
   }
   .mention:hover {
-    background-color: var(--accent-primary);
+    background-color: var(--clr-blurple);
     color: #ffffff;
   }
   .mention-me {
@@ -135,8 +209,6 @@
     app-region: no-drag;
   }
 
-  /* Audio-meter: 4 полоски, бесшовно пульсируют по высоте. Используется в
-     VoiceChannelBar когда зафиксировано speaking-состояние участника. */
   @keyframes meter-bar {
     0%, 100% { transform: scaleY(0.35); }
     50%       { transform: scaleY(1); }
@@ -148,8 +220,6 @@
     animation-timing-function: ease-in-out;
   }
 
-  /* Discord-style enter-анимации для overlay-элементов. Все короткие
-     (<200ms), без bounce-и — Discord держит UI спокойным. */
   @keyframes overlay-fade-in {
     from { opacity: 0; }
     to   { opacity: 1; }

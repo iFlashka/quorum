@@ -1,13 +1,3 @@
-/**
- * Discord-style sidebar для DM-режима. Заменяет ChannelSidebar когда
- * mode === 'dm'. Содержит:
- *   - header «Личные сообщения»
- *   - список DM-каналов с peer-аватаром, именем и last-message preview
- *   - UserCard внизу (как в guild-режиме)
- *
- * Friends/Active contacts/«Найти беседу» — отложено в T3.
- */
-
 import type { PublicDmChannelListEntry, PublicMember } from '@quorum/shared';
 import { useAuth } from '@/auth/store';
 import { useDmChannels } from '@/hooks/use-dm';
@@ -29,14 +19,14 @@ export function DmSidebar(): JSX.Element {
   const membersIndex = useMembersIndex();
 
   return (
-    <aside className="flex w-[240px] shrink-0 flex-col bg-bg-darker">
-      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center justify-between px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
-        <span className="truncate text-[15px] font-semibold tracking-tight text-text-primary">
+    <aside className="flex w-[240px] shrink-0 flex-col bg-bg-4">
+      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center px-4 shadow-low">
+        <span className="truncate text-[15px] font-bold text-text-strong">
           Личные сообщения
         </span>
       </header>
 
-      <nav className="flex-1 overflow-y-auto pt-3 pr-2 pl-2">
+      <nav className="flex-1 overflow-y-auto px-2 pt-3">
         {isLoading && channels.length === 0 && (
           <div className="space-y-1.5 px-1">
             {[0, 1, 2].map((i) => (
@@ -101,10 +91,10 @@ function DmChannelRow({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors',
+        'flex h-[42px] w-full items-center gap-2 rounded-[4px] px-2 text-left transition-colors',
         active
-          ? 'bg-bg-active text-text-primary'
-          : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
+          ? 'bg-white/[0.12] text-int-active'
+          : 'text-int-normal hover:bg-white/[0.06] hover:text-int-hover',
       )}
     >
       <MemberAvatar
@@ -122,8 +112,8 @@ function DmChannelRow({
       <div className="min-w-0 flex-1 leading-tight">
         <div
           className={cn(
-            'truncate text-[16px] font-medium',
-            active ? 'text-text-primary' : 'text-text-secondary',
+            'truncate text-[15px] font-medium',
+            active ? 'text-int-active' : 'text-int-hover',
           )}
         >
           {displayName}
@@ -135,4 +125,3 @@ function DmChannelRow({
     </button>
   );
 }
-

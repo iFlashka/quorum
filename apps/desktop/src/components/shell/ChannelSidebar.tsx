@@ -23,7 +23,6 @@ export function ChannelSidebar(): JSX.Element {
 
   const activeGuild = guildsData?.guilds.find((g) => g.id === guildId);
 
-  // Авто-выбор первого text-канала при смене гилды.
   useEffect(() => {
     if (!channelId && channels.length > 0) {
       const firstText = channels.find((c) => c.kind === 'text') ?? channels[0]!;
@@ -34,27 +33,27 @@ export function ChannelSidebar(): JSX.Element {
   const grouped = useMemo(() => groupByKind(channels), [channels]);
 
   return (
-    <aside className="flex w-[240px] shrink-0 flex-col bg-bg-darker">
-      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center justify-between px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
-        <span className="truncate text-[15px] font-semibold tracking-tight text-text-primary">
+    <aside className="flex w-[240px] shrink-0 flex-col bg-bg-4">
+      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center justify-between px-4 shadow-low">
+        <span className="truncate text-[15px] font-bold text-text-strong">
           {activeGuild?.name ?? 'Quorum'}
         </span>
-        <ChevronDown size={18} className="titlebar-no-drag text-text-secondary" />
+        <ChevronDown size={18} className="titlebar-no-drag text-int-normal" />
       </header>
 
-      <nav className="flex-1 overflow-y-auto pt-2 pr-2 pl-2">
+      <nav className="flex-1 overflow-y-auto px-2 pt-2">
         {isLoading && channels.length === 0 && (
           <div className="space-y-1.5 px-2 py-2">
             <Skeleton className="h-3 w-24" />
             <div className="space-y-1 pt-1">
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-[85%]" />
-              <Skeleton className="h-6 w-[60%]" />
+              <Skeleton className="h-[34px] w-full" />
+              <Skeleton className="h-[34px] w-[85%]" />
+              <Skeleton className="h-[34px] w-[60%]" />
             </div>
             <Skeleton className="mt-3 h-3 w-28" />
             <div className="space-y-1 pt-1">
-              <Skeleton className="h-6 w-[75%]" />
-              <Skeleton className="h-6 w-[55%]" />
+              <Skeleton className="h-[34px] w-[75%]" />
+              <Skeleton className="h-[34px] w-[55%]" />
             </div>
           </div>
         )}
@@ -102,7 +101,7 @@ function CategorySection({ name, channels, activeId, onSelect }: CategoryProps):
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex flex-1 items-center gap-0.5 py-0.5 text-[12px] font-semibold tracking-wide text-text-muted uppercase transition-colors hover:text-text-secondary"
+          className="flex flex-1 items-center gap-0.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.04em] text-int-normal transition-colors hover:text-int-hover"
         >
           <ChevronDown
             size={10}
@@ -114,7 +113,7 @@ function CategorySection({ name, channels, activeId, onSelect }: CategoryProps):
         <button
           type="button"
           aria-label="add channel"
-          className="text-text-muted opacity-0 transition-opacity hover:text-text-secondary group-hover:opacity-100"
+          className="text-int-normal opacity-0 transition-opacity hover:text-int-hover group-hover:opacity-100"
         >
           <Plus size={16} strokeWidth={2} />
         </button>
@@ -151,22 +150,28 @@ function ChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.El
 }
 
 function TextChannelButton({ channel, active, onClick }: ChannelButtonProps): JSX.Element {
-  const Icon = Hash;
   const hasUnread = useChannelHasUnread(channel.id);
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[16px] transition-colors',
+        'group flex h-[34px] w-full items-center gap-1.5 rounded-[4px] px-2 text-[15px] transition-colors',
         active
-          ? 'bg-bg-active text-text-primary'
+          ? 'bg-white/[0.12] text-int-active'
           : hasUnread
-            ? 'text-text-primary hover:bg-bg-hover'
-            : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
+            ? 'text-text-strong hover:bg-white/[0.06]'
+            : 'text-int-normal hover:bg-white/[0.06] hover:text-int-hover',
       )}
     >
-      <Icon size={20} strokeWidth={1.75} className="shrink-0 text-text-muted" />
+      <Hash
+        size={20}
+        strokeWidth={1.75}
+        className={cn(
+          'shrink-0 transition-opacity',
+          active ? 'opacity-100' : 'opacity-70 group-hover:opacity-100',
+        )}
+      />
       <span className={cn('truncate', hasUnread && !active && 'font-semibold')}>
         {channel.name}
       </span>
@@ -209,18 +214,24 @@ function VoiceChannelButton({ channel, active }: ChannelButtonProps): JSX.Elemen
       onClick={onClick}
       title={title}
       className={cn(
-        'group flex w-full items-center gap-1.5 rounded px-2 py-[6px] text-[16px] transition-colors',
+        'group flex h-[34px] w-full items-center gap-1.5 rounded-[4px] px-2 text-[15px] transition-colors',
         inThisChannel
-          ? 'text-accent-success'
+          ? 'text-status-online'
           : active
-            ? 'bg-bg-active text-text-primary'
-            : 'text-text-muted hover:bg-bg-hover hover:text-text-secondary',
+            ? 'bg-white/[0.12] text-int-active'
+            : 'text-int-normal hover:bg-white/[0.06] hover:text-int-hover',
         (blockedByCall || blockedByOtherChannel) && 'cursor-not-allowed opacity-50',
       )}
     >
-      <Volume2 size={20} strokeWidth={1.75} className="shrink-0 text-text-muted" />
+      <Volume2
+        size={20}
+        strokeWidth={1.75}
+        className={cn(
+          'shrink-0 transition-opacity',
+          active || inThisChannel ? 'opacity-100' : 'opacity-70 group-hover:opacity-100',
+        )}
+      />
       <span className="truncate">{channel.name}</span>
     </button>
   );
 }
-

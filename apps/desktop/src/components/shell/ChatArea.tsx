@@ -12,6 +12,7 @@ import { ConnectionStatusBanner } from '@/components/ConnectionStatusBanner';
 import { useChannelVoice } from '@/voice/channel-store';
 import { VoiceChannelGrid } from '@/components/voice/VoiceChannelGrid';
 import { InlineCallBanner } from '@/components/voice/InlineCallBanner';
+import { IconButton } from '@/components/ui/icon-button';
 
 export function ChatArea(): JSX.Element {
   const guildId = useSelection((s) => s.guildId);
@@ -33,41 +34,41 @@ export function ChatArea(): JSX.Element {
   }, [typers, members, meId]);
 
   return (
-    <main className="flex min-w-0 flex-1 flex-col bg-bg-default">
-      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center gap-2 px-4 shadow-[0_1px_0_0_rgba(0,0,0,0.2),0_2px_4px_0_rgba(0,0,0,0.18)]">
+    <main className="flex min-w-0 flex-1 flex-col bg-bg-5">
+      <header className="titlebar-drag relative z-10 flex h-12 shrink-0 items-center gap-2 px-4 shadow-low">
         {channel?.kind === 'voice' ? (
-          <Volume2 size={24} strokeWidth={1.75} className="text-text-muted" />
+          <Volume2 size={24} strokeWidth={1.75} className="text-int-normal" />
         ) : (
-          <Hash size={24} strokeWidth={1.75} className="text-text-muted" />
+          <Hash size={24} strokeWidth={1.75} className="text-int-normal" />
         )}
-        <span className="text-[16px] font-semibold tracking-tight text-text-primary">
+        <span className="text-[16px] font-bold text-text-strong">
           {channel?.name ?? '—'}
         </span>
         {channel?.topic && (
           <>
-            <span className="mx-2 hidden h-6 w-[2px] rounded-sm bg-bg-active md:block" />
-            <span className="hidden truncate text-[14px] text-text-secondary md:block">
+            <span className="mx-2 hidden h-6 w-[2px] rounded-sm bg-border-subtle md:block" />
+            <span className="hidden truncate text-[14px] text-text-muted md:block">
               {channel.topic}
             </span>
           </>
         )}
-        <div className="titlebar-no-drag ml-auto flex items-center gap-0.5 text-text-secondary">
-          <HeaderIcon title="Уведомления">
+        <div className="titlebar-no-drag ml-auto flex items-center gap-0.5">
+          <IconButton title="Уведомления">
             <Bell size={20} strokeWidth={1.75} />
-          </HeaderIcon>
-          <HeaderIcon title="Закреплённые">
+          </IconButton>
+          <IconButton title="Закреплённые">
             <Glyph name="pin" size={20} />
-          </HeaderIcon>
-          <HeaderIcon title="Участники">
+          </IconButton>
+          <IconButton title="Участники">
             <Users size={20} strokeWidth={1.75} />
-          </HeaderIcon>
-          <div className="ml-2 flex h-7 cursor-text items-center gap-2 rounded-[4px] bg-bg-deepest px-2 text-[13px] text-text-muted">
+          </IconButton>
+          <div className="ml-2 flex h-[28px] cursor-text items-center gap-2 rounded-[4px] bg-bg-3 px-2 text-[13px] text-int-muted">
             <span>Поиск</span>
             <Search size={14} strokeWidth={2} className="ml-auto" />
           </div>
-          <HeaderIcon title="Входящие">
+          <IconButton title="Входящие">
             <Inbox size={20} strokeWidth={1.75} />
-          </HeaderIcon>
+          </IconButton>
         </div>
       </header>
 
@@ -118,7 +119,7 @@ function VoiceChannelView({
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-bg-deepest">
+    <div className="flex flex-1 flex-col bg-bg-3">
       <VoiceChannelGrid />
     </div>
   );
@@ -129,21 +130,4 @@ function formatTyping(names: string[]): string {
   if (names.length === 2) return `${names[0]} и ${names[1]} печатают…`;
   if (names.length === 3) return `${names[0]}, ${names[1]} и ${names[2]} печатают…`;
   return 'Несколько участников печатают…';
-}
-
-interface HeaderIconProps {
-  children: React.ReactNode;
-  title?: string;
-}
-
-function HeaderIcon({ children, title }: HeaderIconProps): JSX.Element {
-  return (
-    <button
-      type="button"
-      title={title}
-      className="flex h-7 w-7 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-    >
-      {children}
-    </button>
-  );
 }

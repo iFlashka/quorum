@@ -1,9 +1,3 @@
-/**
- * Discord-style user-card в нижней части обоих sidebar'ов (channel или dm).
- * Avatar + динамический статус («В сети» / «В звонке — X» / «В голосовом — Y»),
- * + три кнопки справа: Mic / Headphones (deafen) / Settings.
- */
-
 import { Glyph } from '@/components/Glyph';
 import { useAuth } from '@/auth/store';
 import { useRuntime } from '@/auth/runtime-store';
@@ -39,34 +33,34 @@ export function UserCard(): JSX.Element {
   });
 
   return (
-    <div className="flex h-[52px] shrink-0 items-center gap-1 bg-bg-deepest px-2">
+    <div className="flex h-[52px] shrink-0 items-center gap-1 bg-bg-3 px-2">
       <button
         type="button"
-        className="flex flex-1 items-center gap-2 overflow-hidden rounded px-1 py-1 text-left hover:bg-bg-hover"
+        className="flex flex-1 items-center gap-2 overflow-hidden rounded-[4px] px-1 py-1 text-left hover:bg-white/[0.06]"
       >
         <div className="relative shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-accent-primary text-[13px] font-semibold text-white">
+          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-blurple text-[13px] font-semibold text-white">
             {imgUrl ? (
               <img src={imgUrl} alt="avatar" className="h-full w-full object-cover" />
             ) : (
               initials
             )}
           </div>
-          <span className="absolute -right-0.5 -bottom-0.5 h-[14px] w-[14px] rounded-full border-[2px] border-bg-deepest bg-accent-success" />
+          <span className="absolute -right-0.5 -bottom-0.5 h-[14px] w-[14px] rounded-full border-[2px] border-bg-3 bg-status-online" />
         </div>
         <div className="min-w-0 leading-[1.15]">
-          <div className="truncate text-[14px] font-semibold text-text-primary">{displayName}</div>
+          <div className="truncate text-[13px] font-bold text-text-strong">{displayName}</div>
           <div
             className={cn(
-              'truncate text-[12px]',
-              status.tone === 'voice' ? 'text-accent-success' : 'text-text-muted',
+              'truncate text-[11px]',
+              status.tone === 'voice' ? 'text-status-online' : 'text-text-muted',
             )}
           >
             {status.text}
           </div>
         </div>
       </button>
-      <div className="flex shrink-0">
+      <div className="flex shrink-0 gap-[1px]">
         <GlobalMuteButton />
         <DeafenButton />
         <UserCardMenu />
@@ -130,10 +124,10 @@ function GlobalMuteButton(): JSX.Element {
       }
       disabled={!inChannel}
       onClick={() => void channelOrchestrator.toggleMute()}
-      className="flex h-8 w-8 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex h-[36px] w-[36px] items-center justify-center rounded-[4px] text-int-normal transition-colors hover:bg-bg-7 hover:text-int-hover disabled:cursor-not-allowed disabled:opacity-50"
     >
       {muted ? (
-        <Glyph name="micOff" size={18} className="text-accent-danger" />
+        <Glyph name="micOff" size={18} className="text-danger" />
       ) : (
         <Glyph name="mic" size={18} />
       )}
@@ -141,11 +135,6 @@ function GlobalMuteButton(): JSX.Element {
   );
 }
 
-/**
- * Deafen-кнопка для voice-канала. Действует только когда юзер в voice-channel
- * (для 1:1 deafen есть в InlineCallBanner). При отсутствии voice-канала —
- * disabled.
- */
 function DeafenButton(): JSX.Element {
   const channelPhase = useChannelVoice((s) => s.phase);
   const deafened = useChannelVoice((s) => s.deafened);
@@ -165,10 +154,10 @@ function DeafenButton(): JSX.Element {
       }
       disabled={!inChannel}
       onClick={() => void channelOrchestrator.toggleDeafen()}
-      className="flex h-8 w-8 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex h-[36px] w-[36px] items-center justify-center rounded-[4px] text-int-normal transition-colors hover:bg-bg-7 hover:text-int-hover disabled:cursor-not-allowed disabled:opacity-50"
     >
       {deafened ? (
-        <Glyph name="headphonesOff" size={18} className="text-accent-danger" />
+        <Glyph name="headphonesOff" size={18} className="text-danger" />
       ) : (
         <Glyph name="headphones" size={18} />
       )}
