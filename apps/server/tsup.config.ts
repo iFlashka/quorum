@@ -17,7 +17,7 @@ function copyMigrations(): void {
 }
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/db/migrate.ts'],
+  entry: ['src/index.ts', 'src/db/migrate.ts', 'src/db/bootstrap.ts'],
   outDir: 'dist',
   format: ['esm'],
   target: 'node20',
