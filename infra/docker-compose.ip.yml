@@ -1,0 +1,113 @@
+# IP-деплой без домена и TLS.
+# Используй когда нет DNS — сервер доступен по http://IP:4421,
+# LiveKit signaling — ws://IP:7880.
+#
+# Запуск:
+#   docker compose -f docker-compose.ip.yml --env-file .env.prod up -d
+#
+# Открыть на firewall:
+#   4421/tcp  — API + WebSocket сервера
+#   7880/tcp  — LiveKit signaling
+#   7882/udp  — LiveKit media (WebRTC)
+#   50000-60000/udp — LiveKit media range
+#   3478/udp + 3478/tcp — coturn STUN/TURN
+#   49152-65535/udp — coturn media relay
+
+services:
+  server:
+    image: node:20-alpine
+    container_name: quorum-server
+    restart: unless-stopped
+    working_dir: /app
+    command: ['node', 'dist/index.js']
+    ports:
+      - '4421:4421'
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4421
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://quorum:${POSTGRES_PASSWORD}@postgres:5432/quorum
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 30d
+      UPLOADS_DIR: /app/uploads
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET}
+      TURN_PUBLIC_URLS: turn:${COTURN_PUBLIC_HOST}:3478,stun:${COTURN_PUBLIC_HOST}:3478
+      TURN_TTL_SECONDS: 3600
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_WS_URL: ws://${LIVEKIT_PUBLIC_HOST}:7880
+    volumes:
+      - ./server-dist:/app:ro
+      - ./data/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - quorum-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: quorum-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quorum
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: quorum
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U quorum -d quorum']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quorum-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: quorum-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quorum-net
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: quorum-livekit
+    restart: unless-stopped
+    command: ['--config', '/livekit.yaml']
+    ports:
+      - '7880:7880'
+      - '7882:7882/udp'
+      - '50000-60000:50000-60000/udp'
+    volumes:
+      - ./livekit/livekit.prod.yaml:/livekit.yaml:ro
+    depends_on:
+      - redis
+    networks:
+      - quorum-net
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: quorum-coturn
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.prod.conf:/etc/coturn/turnserver.conf:ro
+
+networks:
+  quorum-net:
+    driver: bridge
