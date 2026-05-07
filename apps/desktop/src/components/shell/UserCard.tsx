@@ -1,10 +1,10 @@
 /**
  * Discord-style user-card в нижней части обоих sidebar'ов (channel или dm).
- * Аватар + динамический статус («В сети» / «В звонке — X» / «В голосовом — Y»),
- * + кнопка mic-toggle для voice-канала + Settings-меню.
+ * Avatar + динамический статус («В сети» / «В звонке — X» / «В голосовом — Y»),
+ * + три кнопки справа: Mic / Headphones (deafen) / Settings.
  */
 
-import { Mic, MicOff } from 'lucide-react';
+import { Headphones, HeadphoneOff, Mic, MicOff } from 'lucide-react';
 import { useAuth } from '@/auth/store';
 import { useRuntime } from '@/auth/runtime-store';
 import { useChannelVoice } from '@/voice/channel-store';
@@ -68,6 +68,7 @@ export function UserCard(): JSX.Element {
       </button>
       <div className="flex shrink-0">
         <GlobalMuteButton />
+        <DeafenButton />
         <UserCardMenu />
       </div>
     </div>
@@ -135,6 +136,41 @@ function GlobalMuteButton(): JSX.Element {
         <MicOff size={16} strokeWidth={1.75} className="text-accent-danger" />
       ) : (
         <Mic size={16} strokeWidth={1.75} />
+      )}
+    </button>
+  );
+}
+
+/**
+ * Deafen-кнопка для voice-канала. Действует только когда юзер в voice-channel
+ * (для 1:1 deafen есть в InlineCallBanner). При отсутствии voice-канала —
+ * disabled.
+ */
+function DeafenButton(): JSX.Element {
+  const channelPhase = useChannelVoice((s) => s.phase);
+  const deafened = useChannelVoice((s) => s.deafened);
+  const channelOrchestrator = useChannelVoiceOrchestrator();
+  const inChannel = channelPhase === 'joined';
+
+  return (
+    <button
+      type="button"
+      aria-label={deafened ? 'undeafen' : 'deafen'}
+      title={
+        !inChannel
+          ? 'Подключитесь к голосовому каналу'
+          : deafened
+            ? 'Включить звук'
+            : 'Выключить звук'
+      }
+      disabled={!inChannel}
+      onClick={() => void channelOrchestrator.toggleDeafen()}
+      className="flex h-8 w-8 items-center justify-center rounded text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {deafened ? (
+        <HeadphoneOff size={16} strokeWidth={1.75} className="text-accent-danger" />
+      ) : (
+        <Headphones size={16} strokeWidth={1.75} />
       )}
     </button>
   );
