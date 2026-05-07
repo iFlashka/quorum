@@ -15,12 +15,10 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import {
   ChevronUp,
-  Headphones,
-  HeadphoneOff,
-  Mic,
-  MicOff,
-  Monitor,
+  PartyPopper,
   PhoneOff,
+  ScreenShare,
+  Sparkles,
   Video,
   VideoOff,
 } from 'lucide-react';
@@ -38,7 +36,6 @@ export function VoiceChannelBar(): JSX.Element | null {
   const phase = useChannelVoice((s) => s.phase);
   const channelId = useChannelVoice((s) => s.channelId);
   const guildId = useChannelVoice((s) => s.guildId);
-  const deafened = useChannelVoice((s) => s.deafened);
   const meId = useAuth((s) => s.user?.id);
   const myParticipant = useChannelVoice(
     useShallow((s) => (meId ? s.participants.get(meId) : undefined)),
@@ -55,7 +52,6 @@ export function VoiceChannelBar(): JSX.Element | null {
   const channelLabel = channel?.name ?? '...';
   const guildLabel = guild?.name ?? '';
 
-  const muted = myParticipant ? !myParticipant.audioEnabled : false;
   const cameraOn = !!myParticipant?.cameraTrack;
   const screenOn = !!myParticipant?.screenTrack;
   const speaking = myParticipant?.speaking ?? false;
@@ -70,21 +66,21 @@ export function VoiceChannelBar(): JSX.Element | null {
         : 'Голосовая связь подключена';
 
   return (
-    <div className="border-t border-bg-active bg-bg-deepest px-2 py-2">
+    <div className="border-t border-bg-active bg-bg-deepest px-2 py-2.5">
       {/* Top row: meter + status + disconnect */}
       <div className="flex items-center gap-2 px-1">
         <AudioMeter active={live && speaking} />
         <div className="min-w-0 flex-1 leading-tight">
           <div
             className={cn(
-              'truncate text-[14px] font-semibold',
+              'truncate text-[16px] font-semibold',
               live ? 'text-accent-success' : 'text-text-secondary',
             )}
           >
             {headerLabel}
           </div>
           {live && (channelLabel || guildLabel) && (
-            <div className="num-tabular truncate text-[11px] text-text-muted">
+            <div className="truncate text-[12px] text-text-muted">
               <span className="font-medium text-text-secondary">{channelLabel}</span>
               {guildLabel && <span> / {guildLabel}</span>}
             </div>
@@ -94,45 +90,43 @@ export function VoiceChannelBar(): JSX.Element | null {
           type="button"
           onClick={() => void orchestrator.leave()}
           title="Покинуть канал"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-bg-default text-text-secondary transition-colors hover:bg-accent-danger hover:text-white"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-default text-text-secondary transition-colors hover:bg-accent-danger hover:text-white"
         >
-          <PhoneOff size={14} strokeWidth={2} />
+          <PhoneOff size={16} strokeWidth={2} />
         </button>
       </div>
 
-      {/* Bottom row: cam / screen / mic / deafen */}
-      <div className="mt-1.5 grid grid-cols-4 gap-1 px-1">
+      {/* Bottom row: 4 квадратных control'а — Stream / Cam / Soundboard / Activity.
+          mic+deafen уехали в UserCard (как в Discord 2026). */}
+      <div className="mt-2 grid grid-cols-4 gap-1 px-1">
+        <ScreenShareSplitButton
+          screenOn={screenOn}
+          disabled={disabled}
+          onToggle={() => void orchestrator.toggleScreenShare()}
+        />
         <BarButton
           title={cameraOn ? 'Выключить камеру' : 'Включить камеру'}
           active={cameraOn}
           disabled={disabled}
           onClick={() => void orchestrator.toggleCamera()}
         >
-          {cameraOn ? <Video size={16} /> : <VideoOff size={16} />}
-        </BarButton>
-        <ScreenShareSplitButton
-          screenOn={screenOn}
-          disabled={disabled}
-          onToggle={() => void orchestrator.toggleScreenShare()}
-        />
-
-        <BarButton
-          title={muted ? 'Включить микрофон' : 'Выключить микрофон'}
-          active={muted}
-          danger={muted}
-          disabled={disabled}
-          onClick={() => void orchestrator.toggleMute()}
-        >
-          {muted ? <MicOff size={16} /> : <Mic size={16} />}
+          {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
         </BarButton>
         <BarButton
-          title={deafened ? 'Включить звук' : 'Выключить звук'}
-          active={deafened}
-          danger={deafened}
+          title="Soundboard (скоро)"
+          active={false}
           disabled={disabled}
-          onClick={() => orchestrator.toggleDeafen()}
+          onClick={() => undefined}
         >
-          {deafened ? <HeadphoneOff size={16} /> : <Headphones size={16} />}
+          <PartyPopper size={18} />
+        </BarButton>
+        <BarButton
+          title="Активности (скоро)"
+          active={false}
+          disabled={disabled}
+          onClick={() => undefined}
+        >
+          <Sparkles size={18} />
         </BarButton>
       </div>
     </div>
@@ -196,7 +190,7 @@ function BarButton({
       disabled={disabled}
       title={title}
       className={cn(
-        'flex h-8 items-center justify-center rounded-md transition-colors disabled:opacity-50',
+        'flex h-9 items-center justify-center rounded-md transition-colors disabled:opacity-50',
         active && danger
           ? 'bg-accent-danger text-white hover:bg-red-600'
           : active
@@ -265,13 +259,13 @@ function ScreenShareSplitButton({
         disabled={disabled}
         title={screenOn ? 'Остановить трансляцию' : 'Транслировать экран'}
         className={cn(
-          'flex h-8 flex-1 items-center justify-center rounded-l-md transition-colors disabled:opacity-50',
+          'flex h-9 flex-1 items-center justify-center rounded-l-md transition-colors disabled:opacity-50',
           screenOn
             ? 'bg-accent-primary text-white hover:bg-accent-hover'
             : 'bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary',
         )}
       >
-        {screenOn ? <Monitor size={16} /> : <Monitor size={16} />}
+        <ScreenShare size={18} />
       </button>
       <button
         ref={caretRef}
@@ -279,13 +273,13 @@ function ScreenShareSplitButton({
         onClick={() => setOpen((v) => !v)}
         title="Качество трансляции"
         className={cn(
-          'flex h-8 w-4 items-center justify-center rounded-r-md border-l border-bg-deepest transition-colors',
+          'flex h-9 w-4 items-center justify-center rounded-r-md border-l border-bg-deepest transition-colors',
           screenOn
             ? 'bg-accent-primary text-white hover:bg-accent-hover'
             : 'bg-bg-default text-text-secondary hover:bg-bg-hover hover:text-text-primary',
         )}
       >
-        <ChevronUp size={11} strokeWidth={2.5} />
+        <ChevronUp size={12} strokeWidth={2.5} />
       </button>
       {open && (
         <ScreenShareSplitPopover
