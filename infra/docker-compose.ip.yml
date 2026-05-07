@@ -75,6 +75,8 @@ services:
     container_name: quorum-redis
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '127.0.0.1:6379:6379'
     volumes:
       - ./data/redis:/data
     healthcheck:
@@ -89,19 +91,12 @@ services:
     image: livekit/livekit-server:latest
     container_name: quorum-livekit
     restart: unless-stopped
+    network_mode: host
     command: ['--config', '/livekit.yaml']
-    dns:
-      - 127.0.0.11
-    ports:
-      - '7880:7880'
-      - '7882:7882/udp'
-      - '50000-60000:50000-60000/udp'
     volumes:
       - ./livekit/livekit.prod.yaml:/livekit.yaml:ro
     depends_on:
       - redis
-    networks:
-      - quorum-net
 
   coturn:
     image: coturn/coturn:latest
