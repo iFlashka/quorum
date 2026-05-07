@@ -14,6 +14,10 @@ import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ReplyContext } from './ReplyContext';
 import { Embed } from './Embed';
+import {
+  MessageContextMenu,
+  type ContextMenuPosition,
+} from './MessageContextMenu';
 
 interface MessageProps {
   message: PublicMessage;
@@ -33,6 +37,7 @@ export function Message({ message, grouped, userById, disableActions }: MessageP
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuPosition | null>(null);
 
   const channelId = useSelection((s) => s.channelId);
   const editMut = useEditMessage(channelId);
@@ -43,6 +48,26 @@ export function Message({ message, grouped, userById, disableActions }: MessageP
   const isMine = me?.id === message.author.id;
   const mentionsMe = !!me && message.mentionedUserIds.includes(me.id);
   const embedUrls = useMemo(() => extractUrls(message.content).slice(0, 4), [message.content]);
+
+  const onCopyText = (): void => {
+    void navigator.clipboard?.writeText(message.content).catch(() => undefined);
+  };
+  const onCopyLink = (): void => {
+    void navigator.clipboard
+      ?.writeText(`#${channelId ?? ''}/${message.id}`)
+      .catch(() => undefined);
+  };
+  const onReply = (): void => {
+    if (!channelId) return;
+    setReply(channelId, {
+      messageId: message.id,
+      authorDisplayName: message.author.displayName || message.author.username,
+      contentPreview: makePreview(message.content),
+    });
+  };
+  const onReact = (): void => {
+    setPickerOpen(true);
+  };
 
   const submitEdit = (): void => {
     if (!draft.trim() || draft === message.content) {
@@ -65,6 +90,10 @@ export function Message({ message, grouped, userById, disableActions }: MessageP
 
   return (
     <div
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setCtxMenu({ x: e.clientX, y: e.clientY });
+      }}
       className={cn(
         'group relative transition-colors hover:bg-bg-elevated',
         grouped ? 'mt-0 py-[2px]' : 'mt-[17px] pt-[2px] pb-[2px]',
@@ -239,6 +268,21 @@ export function Message({ message, grouped, userById, disableActions }: MessageP
             </ActionButton>
           )}
         </div>
+      )}
+
+      {ctxMenu && (
+        <MessageContextMenu
+          position={ctxMenu}
+          onClose={() => setCtxMenu(null)}
+          isMine={isMine}
+          disableActions={!!disableActions}
+          onReact={() => onReact()}
+          onReply={onReply}
+          onEdit={isMine ? () => setEditing(true) : undefined}
+          onCopy={onCopyText}
+          onCopyLink={onCopyLink}
+          onDelete={isMine ? () => deleteMut.mutate(message.id) : undefined}
+        />
       )}
     </div>
   );
